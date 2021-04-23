@@ -5,12 +5,17 @@
 
     https://betterprogramming.pub/using-python-and-r-with-julia-b7019a3d1420
 
+
+Final list:
+[ ] Http2Stream can read buffer with given length
+
+
 ## Check which process opened the port.
     sudo lsof -nP -i4TCP:50051 | grep LISTEN
 
-[ ] gRPC python
+[x] gRPC python
 
-[ ] find gRPC examples
+[x] find gRPC examples
     gRPC examples:
     git clone -b v1.35.0 https://github.com/grpc/grpc
 
@@ -57,6 +62,7 @@ RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
 
 import ProtoBuf: call_method
 
+using gRPC
 using Nghttp2
 using ProtoBuf
 using PyCall
@@ -73,21 +79,6 @@ module RouteGuideTestHander
 
 end
 
-# move to common
-mutable struct gRPCChannel <: ProtoRpcChannel
-    session::Nghttp2.ClientSession
-    stream_id::UInt32
-
-    function gRPCChannel()
-        tcp_connection = connect("localhost", 50051)
-        session = Nghttp2.open(tcp_connection)
-
-        return new(session, 0)
-    end
-end
-
-struct gRPCController <: ProtoRpcController
-end
 
 function to_delimited_message_bytes(msg)
     iob = IOBuffer()
@@ -129,15 +120,6 @@ function write_request(
                "content-type" => "application/grpc",
                "grpc-accept-encoding" => "identity,deflate,gzip",
                "te" => "trailers"]
-    #trailers = ["grpc-status" => "0"]
-
-#    ":method" => "POST",
-#    ":path" => "/MlosAgent.ExperimentManagerService/Echo",
-#    ":authority" => "localhost:5000",
-#    ":scheme" => "http",
-#    "content-type" => "application/grpc",
-#    "user-agent" => "grpc-dotnet/2.29.0.0",
-#    "grpc-accept-encoding" => "identity,gzip"]
 
     println("write_request")
     @show path
@@ -145,8 +127,8 @@ function write_request(
 
     io = to_delimited_message_bytes(request)
 
-    stream_id1 = Nghttp2.submit_request(
-        channel.session.session,
+    stream_id1 = submit_request(
+        channel.session,
         io,
         headers)
 
@@ -313,7 +295,8 @@ end
     #route_guide_proto_service = routeguide.RouteGuide(RouteGuideTestHander)
     #process(route_guide_proto_service)
 
-    grpc_channel = gRPCChannel()
+    tcp_connection = connect("localhost", 50051)
+    grpc_channel = gRPCChannel(tcp_connection)
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
     controller = gRPCController()
@@ -322,8 +305,10 @@ end
     in_point.latitude = 44
     in_point.longitude = 46
 
-    result = routeguide.GetFeature(routeGuide, controller, in_point)
-    @show result
+    for n in 1:10
+        result = routeguide.GetFeature(routeGuide, controller, in_point)
+        @show result
+    end
 
     println("Hello after")
 
