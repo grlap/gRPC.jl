@@ -51,7 +51,8 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
         x = 1
 
     def GetFeature(self, request, context):
-        return route_guide_pb2.Feature(name="", location=request)
+        request.latitude = 89
+        return route_guide_pb2.Feature(name="my_name", location=request)
 
     def ListFeatures(self, request, context):
         left = min(request.lo.longitude, request.hi.longitude)

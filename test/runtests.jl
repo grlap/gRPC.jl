@@ -122,11 +122,14 @@ function write_request(
     path = "/" * service.name * "/" * method.name
     headers = [":method" => "POST",
                ":path" => path,
+               "user-agent" => "grpc-python/1.31.0 grpc-c/11.0.0 (windows; chttp2)",
+               "accept-encoding" => "identity,gzip",
                ":authority" => "localhost:50051",
                ":scheme" => "http",
                "content-type" => "application/grpc",
-               "grpc-accept-encoding" => "identity,gzip"]
-    trailers = ["grpc-status" => "0"]
+               "grpc-accept-encoding" => "identity,deflate,gzip",
+               "te" => "trailers"]
+    #trailers = ["grpc-status" => "0"]
 
 #    ":method" => "POST",
 #    ":path" => "/MlosAgent.ExperimentManagerService/Echo",
@@ -145,16 +148,14 @@ function write_request(
     stream_id1 = Nghttp2.submit_request(
         channel.session.session,
         io,
-        headers,
-        trailers)
+        headers)
 
     println("<--submited_request")
     @show stream_id1
     stream1 = recv(channel.session.session)
     println("<--received stream")
 
-    res = read_all(stream1)
-    @show res
+    return stream1
 
     #channel.stream_id = Session.next_free_stream_identifier(connection)
     #@debug("writing request", stream_id=channel.stream_id)
@@ -167,24 +168,28 @@ end
 
 
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
-    @show request
-    write_request(channel, controller, service, method, request)
+    stream1 = write_request(channel, controller, service, method, request)
+    @show stream1
     response_type = get_response_type(method)
     response = response_type()
 
-    println("[-] response_type:")
-    @show response_type
-    println("[=] response:")
-    @show response
-    #read_response(channel, controller, response)
+    println("reading response")
+    respose_data = read_all(stream1)
+
+    iob = IOBuffer(respose_data)
+    compressed = read(iob, UInt8)
+    datalen = ntoh(read(iob, UInt32))
+    readproto(iob, response)
+    return response
 end
 
 """
-function call_method(channel::gRPCChannel,
-                     service::ServiceDescriptor,
-                     method::MethodDescriptor,
-                     controller::gRPCController,
-                     request)
+function call_method(
+    channel::gRPCChannel,
+    service::ServiceDescriptor,
+    method::MethodDescriptor,
+    controller::gRPCController,
+    request)
     #write_request(channel, controller, service, method, request)
     response_type = get_response_type(method)
     response = response_type()
@@ -317,13 +322,8 @@ end
     in_point.latitude = 44
     in_point.longitude = 46
 
-    routeguide.GetFeature(routeGuide, controller, in_point)
-
-    #GetFeature(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::Point) = call_method(stub.impl, _RouteGuide_methods[1], controller, inp)
-
-
-    #data_len = writeproto(iob, msg)
-
+    result = routeguide.GetFeature(routeGuide, controller, in_point)
+    @show result
 
     println("Hello after")
 
