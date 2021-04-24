@@ -5,6 +5,7 @@ import random
 import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
 import proto.route_guide_pb2 as route_guide_pb2
 
+import threading
 
 def make_route_note(message, latitude, longitude):
     return route_guide_pb2.RouteNote(
@@ -26,7 +27,7 @@ def guide_get_one_feature(stub, point):
 
 
 def guide_get_feature(stub):
-    guide_get_one_feature(stub, route_guide_pb2.Point(latitude=409146138, longitude=-746188906))
+    guide_get_one_feature(stub, route_guide_pb2.Point(latitude=1, longitude=2))
 
     #guide_get_one_feature(stub, route_guide_pb2.Point(latitude=0, longitude=0))
 
@@ -99,7 +100,8 @@ def run():
 
 if __name__ == '__main__':
     x = 1
-    run()
+    t = threading.Thread(target = run)
+    t.start()
     print("Goodbye, World!")
 
 

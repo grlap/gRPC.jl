@@ -1,5 +1,11 @@
 """
 
+    Julia <-> Julia does not work
+    incorrectly pass the object...
+
+
+    on
+
     arm64
     ~/miniforge3/bin/python3
 
@@ -9,6 +15,9 @@
 Final list:
 [ ] Http2Stream can read buffer with given length
 
+[ ] On error close the stream
+
+[ ] inner process reads are blocking ...
 
 ## Check which process opened the port.
     sudo lsof -nP -i4TCP:50051 | grep LISTEN
@@ -61,6 +70,7 @@ RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
 
 import ProtoBuf: call_method
 
+using Distributed
 using gRPC
 using Nghttp2
 using ProtoBuf
@@ -87,18 +97,6 @@ module RouteGuideTestHander
     end
 end
 
-
-function to_delimited_message_bytes(msg)
-    iob = IOBuffer()
-    write(iob, UInt8(0))
-    write(iob, hton(UInt32(0)))
-    data_len = writeproto(iob, msg)
-    seek(iob, 1)
-    write(iob, hton(UInt32(data_len)))
-    seek(iob, 0)
-    return iob
-end
-
 function read_all(io::IO)::Vector{UInt8}
     # Create IOBuffer and copy chunks until we read eof.
     result_stream = IOBuffer()
@@ -121,20 +119,21 @@ function write_request(
     path = "/" * service.name * "/" * method.name
     headers = [":method" => "POST",
                ":path" => path,
+               ":authority" => "localhost:5000",
+               ":scheme" => "http",
                "user-agent" => "grpc-python/1.31.0 grpc-c/11.0.0 (windows; chttp2)",
                "accept-encoding" => "identity,gzip",
-               ":authority" => "localhost:50051",
-               ":scheme" => "http",
                "content-type" => "application/grpc",
                "grpc-accept-encoding" => "identity,deflate,gzip",
                "te" => "trailers"]
 
-    io = to_delimited_message_bytes(request)
+    io = gRPC.serialize_object(request)
 
     stream_id1 = submit_request(
         channel.session,
         io,
         headers)
+    println("submited with stream_id: $(stream_id1)")
 
     stream1 = recv(channel.session.session)
     return stream1
@@ -148,6 +147,8 @@ end
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
     println("|>internal call_method")
     stream1 = write_request(channel, controller, service, method, request)
+    println("submited 2")
+
     response_type = get_response_type(method)
     response = response_type()
 
@@ -155,27 +156,11 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
     respose_data = read_all(stream1)
 
     iob = IOBuffer(respose_data)
-    compressed = read(iob, UInt8)
-    datalen = ntoh(read(iob, UInt32))
-    readproto(iob, response)
+
+    gRPC.deserialize_object!(iob, response)
+
     return response
 end
-
-"""
-function call_method(
-    channel::gRPCChannel,
-    service::ServiceDescriptor,
-    method::MethodDescriptor,
-    controller::gRPCController,
-    request)
-    #write_request(channel, controller, service, method, request)
-    response_type = get_response_type(method)
-    response = response_type()
-    #read_response(channel, controller, response)
-end
-"""
-
-
 
 
 function process(proto_service::ProtoService)
@@ -183,59 +168,55 @@ function process(proto_service::ProtoService)
 end
 
 """
-    Generate Julia gRPC files.
-"""
-function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
-    if !isdir(jl_out_dir)
-        println("Generating Julia proto file ...")
-        mkdir(jl_out_dir)
-
-        ProtoBuf.protoc(`-I=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto`)
-    end
-end
-
-"""
-    Install pip3 modules.
-"""
-function python_install_requirements()
-    pip_os = pyimport("pip")
-    pip_os.main(["list"])
-    pip_os.main(["install", "grpcio"])
-    pip_os.main(["install", "grpcio-tools"])
-end
-
-"""
-    Generate Python gRPC files.
-"""
-function generate_python_grpc(proto_dir::String, py_out_dir::String)
-    #if !isdir(py_out_dir)
-
-        println("Generating Python proto file from folder: $(pwd())...")
-        #mkdir(py_out_dir)
-
-        py_command = pyimport("grpc.tools.command")
-
-        # Add '-V' as a first argument.
-        py_command.protoc.main(`-V --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`)
-    #end
-end
-
-"""
     Calling into python.
 """
-function call_python()
+function python_client()
     println("call_python")
+
+    # Calling from gRPC.jl/test.
+    py"""
+    import threading
+    def hello_from_module(name: str) -> threading.Thread:
+        #import python_test.mymodule.server as server
+        #server.serve()
+
+        import python_test.mymodule.client as cl
+        #cl.run()
+
+        t = threading.Thread(target = cl.run)
+        t.start()
+
+        return t
+    """
+
+    x = py"hello_from_module"("Julia")
+    @show x
+    return x
+end
+
+function wait_for_thread(thread::PyObject)
+    py"""
+    import threading
+    def wait_for_thread(t: threading.Thread) -> str:
+        t.join()
+        return "OK"
+    """
+
+    x = py"wait_for_thread"(thread)
+    @show x
+
+end
+
+function python_server()
+    println("python_server")
 
     # Calling from gRPC.jl/test.
     py"""
     def hello_from_module(name: str) -> str:
         import python_test.mymodule.mymodule as mm
 
-        #import python_test.mymodule.server as server
-        #server.serve()
-
-        import python_test.mymodule.client as cl
-        cl.run()
+        import python_test.mymodule.server as server
+        server.serve()
 
         # mm.hello_world(name)
         return "abc"
@@ -243,26 +224,63 @@ function call_python()
 
     x = py"hello_from_module"("Julia")
     @show x
-
-    py"""
-    import numpy as np
-
-    def sinpi(x):
-        return np.sin(np.pi * x)
-    """
-
-    py"sinpi"(1)
 end
 
 
+function client_call()
+    println("connect_1")
+    controller = gRPCController()
+    tcp_connection = connect(5000)
+    @show tcp_connection
+    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
+
+    routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
+
+    in_point = routeguide.Point()
+    in_point.latitude = 1
+    in_point.longitude = 2
+
+    #for n in 1:10
+    result = routeguide.GetFeature(routeGuide, controller, in_point)
+    #end
+end
+
+function server_call()
+    socket = listen(5000)
+
+    controller = gRPCController()
+    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
+
+    println("=> before accept")
+
+    accepted_socket = accept(socket)
+    println("<= after accept")
+
+    nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
+    println("4")
+
+    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+    println("5")
+end
+
+function test_serialize()
+
+    in_point = routeguide.Point()
+    in_point.latitude = 1
+    in_point.longitude = 2
+
+    iob = IOBuffer()
+    writeproto(iob, in_point)
+    seek(iob , 0)
+    @show read(iob)
+
+    #out_point = RouteGuideTestHander.routeguide.Point()
+    #readproto(iob, out_point)
+    #@show out_point
+end
 
 # Verifies calling into Nghttp library.
 @testset "gRPC " begin
-
-    proto_dir = "$(pwd())/test/proto"
-    jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
-    py_out_dir = "$(pwd())/test/python_test/mymodule"
-    @show jl_out_dir
 
     # Example how to use PyCall
     py_sys = pyimport("sys")
@@ -270,49 +288,38 @@ end
     py_os = pyimport("os")
     @show py_os.__file__
 
-    # Install gRPC modules
-    #python_install_requirements()
-
-    # Julia codegen
-    #generate_julia_grpc(proto_dir, jl_out_dir)
-
-    # Python codegen
-    #generate_python_grpc(proto_dir, py_out_dir)
 
     # Configure python path for the local imports.
     println(@__DIR__)
     # Both are required for proper imports
-    #pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
-    #pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
+    pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
+    pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
     #call_python()
 
 
-    # Client
+    # Server
 
-    controller = gRPCController()
-"""
-    tcp_connection = connect("localhost", 50051)
-    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
-
-    routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
-
-    in_point = routeguide.Point()
-    in_point.latitude = 44
-    in_point.longitude = 46
-
-    for n in 1:10
-        result = routeguide.GetFeature(routeGuide, controller, in_point)
+    println("1")
+    t1 = @task begin
+        python_client()
     end
 
-"""
-    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
+    t3 = @task begin
+        client_call()
+    end
 
-    socket = listen(5000)
-    accepted_socket = accept(socket)
+    t2 = @task begin
+        server_call()
+    end
 
-    nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
+    println("s1")
+    #schedule(t2);
+    #println("s2")
+    #schedule(t1);
+    #println("s3")
 
-    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+    #wait(t2)
+    #wait(t1)
 
     #stream = recv(server_session)
     #@show stream

@@ -56,7 +56,8 @@ const DEFAULT_TRAILER = ["grpc-status" => "0"]
 const gRPC_Default_Request = [
     ":method" => "POST",
     ":path" => "/MlosAgent.ExperimentManagerService/Echo",
-    ":authority" => "localhost:5000",
+#    ":authority" => "localhost:5000",
+    ":authority" => "localhost",
     ":scheme" => "http",
     "content-type" => "application/grpc",
     "user-agent" => "grpc-dotnet/2.29.0.0",
@@ -78,13 +79,28 @@ function read_all(io::IO)::Vector{UInt8}
 end
 
 """
-    <: ProtoType
+    Deserialize the instance of the proto object from the stream.
 """
-function serialize_object(msg::ProtoType)
+function deserialize_object!(iob::IOBuffer, instance::ProtoType)
+    compressed = read(iob, UInt8)
+    datalen = ntoh(read(iob, UInt32))
+
+    # TODO limit the input buffer size
+    iob = IOBuffer(read(iob, datalen))
+    seek(iob, 0)
+    readproto(iob, instance)
+end
+
+"""
+    Serialize the instance of the proto object into the stream.
+"""
+function serialize_object(instance::ProtoType)
     iob = IOBuffer()
+    # No compresion.
     write(iob, UInt8(0))
+    # Placeholder for the serialized object length.
     write(iob, hton(UInt32(0)))
-    data_len = writeproto(iob, msg)
+    data_len = writeproto(iob, instance)
     seek(iob, 1)
     write(iob, hton(UInt32(data_len)))
     seek(iob, 0)
@@ -114,14 +130,23 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     @show method
 
     request_type = get_request_type(proto_service, method)
+    @show request_type
     request_argument = request_type()
 
     request_data = read_all(request_stream)
+    @show request_data
 
     iob = IOBuffer(request_data)
     compressed = read(iob, UInt8)
     datalen = ntoh(read(iob, UInt32))
-    readproto(iob, request_argument)
+    @show compressed, datalen, request_type
+
+    # TODO
+    # Limit the steam, should be in bghttp2
+    iob2 = IOBuffer(read(iob, datalen))
+    println("-> before deserialize")
+    seek(iob2, 0)
+    readproto(iob2, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
     println("Prepare for response")
