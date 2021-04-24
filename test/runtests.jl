@@ -255,66 +255,6 @@ function call_python()
 end
 
 
-function read_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
-    request_stream = recv(http2_server_session)
-    @show request_stream.headers
-
-    headers = request_stream.headers
-    method = headers[":method"]
-    path = headers[":path"]
-    path_components = split(path, "/"; keepempty=false)
-
-    if length(path_components) != 2
-        # Missing or invalid path in request's header.
-        return nothing
-    end
-
-    sevice_name, method_name = path_components
-
-    method = find_method(proto_service, method_name)
-    @show method
-
-    request_type = get_request_type(proto_service, method)
-    request_argument = request_type()
-
-    request_data = read_all(request_stream)
-
-    iob = IOBuffer(request_data)
-    compressed = read(iob, UInt8)
-    datalen = ntoh(read(iob, UInt32))
-    readproto(iob, request_argument)
-
-    response = call_method(proto_service, method, controller, request_argument)
-    println("Prepare for response")
-
-    io = to_delimited_message_bytes(response)
-
-    println("-> submit_response")
-    submit_response(
-        request_stream,
-        io,
-        gRPC.DEFAULT_STATUS_200,
-        gRPC.DEFAULT_TRAILER)
-
-#    if evt.is_end_stream
-#        data = UInt8[]
-#    else
-#        data_evt = Session.take_evt!(connection)
-#        data = data_evt.data
-#    end
-
-#    @debug("received request", method, path, stream_id=channel.stream_id, servicename,
-#           methodname, nbytes=length(data))
-
-#    service = services[servicename]
-#    method = find_method(service, methodname)
-#    request_type = get_request_type(service, method)
-#    request = request_type()
-#    from_delimited_message_bytes(data, request)
-
-#    service, method, request
-end
-
 
 # Verifies calling into Nghttp library.
 @testset "gRPC " begin
@@ -372,8 +312,7 @@ end
 
     nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
 
-    #service, method, request = 
-    read_request(nghttp2_server_session, controller, route_guide_proto_service)
+    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
 
     #stream = recv(server_session)
     #@show stream
