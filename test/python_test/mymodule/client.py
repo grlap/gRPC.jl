@@ -25,9 +25,9 @@ def guide_get_one_feature(stub, point):
 
 
 def guide_get_feature(stub):
-    guide_get_one_feature(
-        stub, route_guide_pb2.Point(latitude=409146138, longitude=-746188906))
-    guide_get_one_feature(stub, route_guide_pb2.Point(latitude=0, longitude=0))
+    guide_get_one_feature(stub, route_guide_pb2.Point(latitude=409146138, longitude=-746188906))
+
+    #guide_get_one_feature(stub, route_guide_pb2.Point(latitude=0, longitude=0))
 
 
 def guide_list_features(stub):
@@ -88,12 +88,12 @@ def run():
         stub = route_guide_pb2_grpc.RouteGuideStub(channel)
         print("-------------- GetFeature --------------")
         guide_get_feature(stub)
-        print("-------------- ListFeatures --------------")
-        guide_list_features(stub)
-        print("-------------- RecordRoute --------------")
-        guide_record_route(stub)
-        print("-------------- RouteChat --------------")
-        guide_route_chat(stub)
+        # print("-------------- ListFeatures --------------")
+        # guide_list_features(stub)
+        # print("-------------- RecordRoute --------------")
+        # guide_record_route(stub)
+        # print("-------------- RouteChat --------------")
+        # guide_route_chat(stub)
 
 
 if __name__ == '__main__':

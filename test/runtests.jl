@@ -57,7 +57,6 @@ RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
     abstract type ProtoRpcChannel end
     abstract type ProtoRpcController end
     abstract type AbstractProtoServiceStub{B} end
-
 """
 
 import ProtoBuf: call_method
@@ -70,13 +69,21 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
-include("proto/proto_jl_out/routeguide.jl")
+#include("proto/proto_jl_out/routeguide.jl")
 
 """
     Handler.
 """
 module RouteGuideTestHander
+    include("proto/proto_jl_out/routeguide.jl")
 
+    function GetFeature(point::routeguide.Point)
+        println("->GetFeature")
+        @show point
+        feature = routeguide.Feature()
+        feature.name = "from_julia"
+        return feature
+    end
 end
 
 
@@ -150,6 +157,7 @@ end
 
 
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
+    println("|>internal call_method")
     stream1 = write_request(channel, controller, service, method, request)
     @show stream1
     response_type = get_response_type(method)
@@ -178,6 +186,7 @@ function call_method(
     #read_response(channel, controller, response)
 end
 """
+
 
 
 
@@ -258,6 +267,66 @@ function call_python()
 end
 
 
+function read_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
+    request_stream = recv(http2_server_session)
+    @show request_stream.headers
+
+    headers = request_stream.headers
+    method = headers[":method"]
+    path = headers[":path"]
+    path_components = split(path, "/"; keepempty=false)
+
+    if length(path_components) != 2
+        # Missing or invalid path in request's header.
+        return nothing
+    end
+
+    sevice_name, method_name = path_components
+
+    method = find_method(proto_service, method_name)
+    @show method
+
+    request_type = get_request_type(proto_service, method)
+    request_argument = request_type()
+
+    request_data = read_all(request_stream)
+
+    iob = IOBuffer(request_data)
+    compressed = read(iob, UInt8)
+    datalen = ntoh(read(iob, UInt32))
+    readproto(iob, request_argument)
+
+    response = call_method(proto_service, method, controller, request_argument)
+    println("Prepare for response")
+
+    io = to_delimited_message_bytes(response)
+    @show read(io)
+
+    println("-> submit_response")
+    submit_response(
+        request_stream,
+        io,
+        gRPC.DEFAULT_STATUS_200)
+
+#    if evt.is_end_stream
+#        data = UInt8[]
+#    else
+#        data_evt = Session.take_evt!(connection)
+#        data = data_evt.data
+#    end
+
+#    @debug("received request", method, path, stream_id=channel.stream_id, servicename,
+#           methodname, nbytes=length(data))
+
+#    service = services[servicename]
+#    method = find_method(service, methodname)
+#    request_type = get_request_type(service, method)
+#    request = request_type()
+#    from_delimited_message_bytes(data, request)
+
+#    service, method, request
+end
+
 
 # Verifies calling into Nghttp library.
 @testset "gRPC " begin
@@ -291,15 +360,14 @@ end
 
 
     # Client
-    #include("$(jl_out_dir)/routeguide.jl")
-    #route_guide_proto_service = routeguide.RouteGuide(RouteGuideTestHander)
-    #process(route_guide_proto_service)
 
+    controller = gRPCController()
+
+"""
     tcp_connection = connect("localhost", 50051)
-    grpc_channel = gRPCChannel(tcp_connection)
+    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
-    controller = gRPCController()
 
     in_point = routeguide.Point()
     in_point.latitude = 44
@@ -309,6 +377,28 @@ end
         result = routeguide.GetFeature(routeGuide, controller, in_point)
         @show result
     end
+"""
+
+    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
+
+    socket = listen(5000)
+    accepted_socket = accept(socket)
+
+    nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
+
+    #service, method, request = 
+    read_request(nghttp2_server_session, controller, route_guide_proto_service)
+
+    #stream = recv(server_session)
+    #@show stream
+
+    #send_buffer = IOBuffer(read(stream))
+    #@show send_buffer
+
+    #send(http2_session,
+        #stream_id,
+        #send_buffer,
+        #gRPC.DEFAULT_STATUS_200)
 
     println("Hello after")
 
