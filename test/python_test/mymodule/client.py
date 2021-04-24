@@ -14,6 +14,7 @@ def make_route_note(message, latitude, longitude):
 
 def guide_get_one_feature(stub, point):
     feature = stub.GetFeature(point)
+    print(feature)
     if not feature.location:
         print("Server returned incomplete feature")
         return

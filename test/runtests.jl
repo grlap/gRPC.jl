@@ -69,7 +69,7 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
-#include("proto/proto_jl_out/routeguide.jl")
+include("proto/proto_jl_out/routeguide.jl")
 
 """
     Handler.
@@ -82,6 +82,7 @@ module RouteGuideTestHander
         @show point
         feature = routeguide.Feature()
         feature.name = "from_julia"
+        feature.location = point
         return feature
     end
 end
@@ -128,10 +129,6 @@ function write_request(
                "grpc-accept-encoding" => "identity,deflate,gzip",
                "te" => "trailers"]
 
-    println("write_request")
-    @show path
-    @show headers
-
     io = to_delimited_message_bytes(request)
 
     stream_id1 = submit_request(
@@ -139,27 +136,18 @@ function write_request(
         io,
         headers)
 
-    println("<--submited_request")
-    @show stream_id1
     stream1 = recv(channel.session.session)
-    println("<--received stream")
-
     return stream1
-
-    #channel.stream_id = Session.next_free_stream_identifier(connection)
-    #@debug("writing request", stream_id=channel.stream_id)
-    #Session.put_act!(connection, Session.ActSendHeaders(channel.stream_id, headers, false))
-    #data_buff = to_delimited_message_bytes(request)
-    #Session.put_act!(channel.session, Session.ActSendData(channel.stream_id, data_buff, true))
-    #@debug("wrote request", stream_id=channel.stream_id, nbytes=length(data_buff))
-    nothing
 end
 
 
+
+"""
+    Client request.
+"""
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
     println("|>internal call_method")
     stream1 = write_request(channel, controller, service, method, request)
-    @show stream1
     response_type = get_response_type(method)
     response = response_type()
 
@@ -300,13 +288,13 @@ function read_request(http2_server_session::Http2ServerSession, controller::gRPC
     println("Prepare for response")
 
     io = to_delimited_message_bytes(response)
-    @show read(io)
 
     println("-> submit_response")
     submit_response(
         request_stream,
         io,
-        gRPC.DEFAULT_STATUS_200)
+        gRPC.DEFAULT_STATUS_200,
+        gRPC.DEFAULT_TRAILER)
 
 #    if evt.is_end_stream
 #        data = UInt8[]
@@ -362,7 +350,6 @@ end
     # Client
 
     controller = gRPCController()
-
 """
     tcp_connection = connect("localhost", 50051)
     grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
@@ -375,10 +362,9 @@ end
 
     for n in 1:10
         result = routeguide.GetFeature(routeGuide, controller, in_point)
-        @show result
     end
-"""
 
+"""
     route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
 
     socket = listen(5000)
@@ -399,6 +385,7 @@ end
         #stream_id,
         #send_buffer,
         #gRPC.DEFAULT_STATUS_200)
+#"""
 
     println("Hello after")
 
