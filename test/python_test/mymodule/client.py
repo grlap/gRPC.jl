@@ -6,6 +6,7 @@ import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
 import proto.route_guide_pb2 as route_guide_pb2
 
 import threading
+from multiprocessing import Process
 
 def make_route_note(message, latitude, longitude):
     return route_guide_pb2.RouteNote(
@@ -97,11 +98,13 @@ def run():
         # print("-------------- RouteChat --------------")
         # guide_route_chat(stub)
 
+def run_p():
+    p = Process(target = run)
+    p.start()
+    return p
 
 if __name__ == '__main__':
-    x = 1
-    t = threading.Thread(target = run)
-    t.start()
+    run_p()
     print("Goodbye, World!")
 
 

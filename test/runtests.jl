@@ -68,9 +68,10 @@ RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
     abstract type AbstractProtoServiceStub{B} end
 """
 
+using Distributed
+
 import ProtoBuf: call_method
 
-using Distributed
 using gRPC
 using Nghttp2
 using ProtoBuf
@@ -167,65 +168,6 @@ function process(proto_service::ProtoService)
     println("process $(proto_service)")
 end
 
-"""
-    Calling into python.
-"""
-function python_client()
-    println("call_python")
-
-    # Calling from gRPC.jl/test.
-    py"""
-    import threading
-    def hello_from_module(name: str) -> threading.Thread:
-        #import python_test.mymodule.server as server
-        #server.serve()
-
-        import python_test.mymodule.client as cl
-        #cl.run()
-
-        t = threading.Thread(target = cl.run)
-        t.start()
-
-        return t
-    """
-
-    x = py"hello_from_module"("Julia")
-    @show x
-    return x
-end
-
-function wait_for_thread(thread::PyObject)
-    py"""
-    import threading
-    def wait_for_thread(t: threading.Thread) -> str:
-        t.join()
-        return "OK"
-    """
-
-    x = py"wait_for_thread"(thread)
-    @show x
-
-end
-
-function python_server()
-    println("python_server")
-
-    # Calling from gRPC.jl/test.
-    py"""
-    def hello_from_module(name: str) -> str:
-        import python_test.mymodule.mymodule as mm
-
-        import python_test.mymodule.server as server
-        server.serve()
-
-        # mm.hello_world(name)
-        return "abc"
-    """
-
-    x = py"hello_from_module"("Julia")
-    @show x
-end
-
 
 function client_call()
     println("connect_1")
@@ -246,12 +188,13 @@ function client_call()
 end
 
 function server_call()
+    println("[[$(Threads.threadid())]] => server_call")
     socket = listen(5000)
 
     controller = gRPCController()
     route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
 
-    println("=> before accept")
+    println("[[$(Threads.threadid())]] => before accept ")
 
     accepted_socket = accept(socket)
     println("<= after accept")
@@ -279,14 +222,32 @@ function test_serialize()
     #@show out_point
 end
 
+"""
+    Use python client.
+"""
+function test1()
+    # Create a worker process, where we run python interpreter.
+    addprocs(1)
+
+    # Load python wrappers into the worker processes.
+    @everywhere include("test/py_helpers.jl")
+
+    f1 = @async server_call()
+
+    f2 = @spawnat 2 python_client()
+
+    fetch(f1)
+    fetch(f2)
+end
+
 # Verifies calling into Nghttp library.
 @testset "gRPC " begin
 
     # Example how to use PyCall
-    py_sys = pyimport("sys")
-    @show py_sys.version
-    py_os = pyimport("os")
-    @show py_os.__file__
+    #py_sys = pyimport("sys")
+    #@show py_sys.version
+    #py_os = pyimport("os")
+    #@show py_os.__file__
 
 
     # Configure python path for the local imports.
@@ -296,21 +257,37 @@ end
     pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
     #call_python()
 
+@show Threads.nthreads()
 
     # Server
+# import Base.Threads.@spawn
+# s1 = @spawn server_call()
+# s2 = @spawn python_client()
+#import Base.Threads.@spawn
+#@spawn python_client()
+#@spawn server_call()
+# f1=remotecall(server_call, 2)
+# f2=remotecall(python_client, 3)
 
-    println("1")
-    t1 = @task begin
-        python_client()
-    end
 
-    t3 = @task begin
-        client_call()
-    end
+    #f2 = @spawnat 2 python_client()
+    #fetch(f2)
 
-    t2 = @task begin
-        server_call()
-    end
+    #println("1")
+    #t1 = @task begin
+        #python_client()
+    #end
+
+    #t3 = @task begin
+        #client_call()
+    #end
+
+###"""
+    #t2 = @task begin
+        #server_call()
+    #end
+    #schedule(t2);
+# """
 
     println("s1")
     #schedule(t2);
@@ -333,6 +310,9 @@ end
         #gRPC.DEFAULT_STATUS_200)
 #"""
 
+
+
+    #f2 = @spawnat 2 python_client()
     println("Hello after")
 
     @test true
