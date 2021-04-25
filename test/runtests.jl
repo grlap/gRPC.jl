@@ -187,9 +187,8 @@ function client_call()
     #end
 end
 
-function server_call()
+function server_call(socket)
     println("[[$(Threads.threadid())]] => server_call")
-    socket = listen(5000)
 
     controller = gRPCController()
     route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
@@ -232,7 +231,12 @@ function test1()
     # Load python wrappers into the worker processes.
     @everywhere include("test/py_helpers.jl")
 
-    f1 = @async server_call()
+    socket = listen(5000)
+
+    # listen(), then pass the socket
+    f1 = @async server_call(socket)
+    # remove sleep
+    #sleep(1)
 
     f2 = @spawnat 2 python_client()
 
