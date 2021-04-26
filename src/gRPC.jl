@@ -65,28 +65,15 @@ const gRPC_Default_Request = [
     "te" => "trailers"]
 
 
-function read_all(io::IO)::Vector{UInt8}
-    # Create IOBuffer and copy chunks until we read eof.
-    result_stream = IOBuffer()
-
-    while !eof(io)
-        buffer_chunk = read(io)
-        write(result_stream, buffer_chunk)
-    end
-
-    seekstart(result_stream)
-    return result_stream.data
-end
-
 """
     Deserialize the instance of the proto object from the stream.
 """
-function deserialize_object!(iob::IOBuffer, instance::ProtoType)
-    compressed = read(iob, UInt8)
-    datalen = ntoh(read(iob, UInt32))
+function deserialize_object!(io::IO, instance::ProtoType)
+    compressed = read(io, UInt8)
+    datalen = ntoh(read(io, UInt32))
 
     # TODO limit the input buffer size
-    iob = IOBuffer(read(iob, datalen))
+    iob = IOBuffer(read(io, datalen))
     seek(iob, 0)
     readproto(iob, instance)
 end
@@ -133,20 +120,16 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     @show request_type
     request_argument = request_type()
 
-    request_data = read_all(request_stream)
-    @show request_data
-
-    iob = IOBuffer(request_data)
-    compressed = read(iob, UInt8)
-    datalen = ntoh(read(iob, UInt32))
+    compressed = read(request_stream, UInt8)
+    datalen = ntoh(read(request_stream, UInt32))
     @show compressed, datalen, request_type
 
     # TODO
     # Limit the steam, should be in bghttp2
-    iob2 = IOBuffer(read(iob, datalen))
+    iob = IOBuffer(read(request_stream, datalen))
     println("-> before deserialize")
-    seek(iob2, 0)
-    readproto(iob2, request_argument)
+    seek(iob, 0)
+    readproto(iob, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
     println("Prepare for response")

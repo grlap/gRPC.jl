@@ -98,19 +98,6 @@ module RouteGuideTestHander
     end
 end
 
-function read_all(io::IO)::Vector{UInt8}
-    # Create IOBuffer and copy chunks until we read eof.
-    result_stream = IOBuffer()
-
-    while !eof(io)
-        buffer_chunk = read(io)
-        write(result_stream, buffer_chunk)
-    end
-
-    seekstart(result_stream)
-    return result_stream.data
-end
-
 function write_request(
     channel::gRPCChannel,
     controller::gRPCController,
@@ -148,17 +135,12 @@ end
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
     println("|>internal call_method")
     stream1 = write_request(channel, controller, service, method, request)
-    println("submited 2")
 
     response_type = get_response_type(method)
     response = response_type()
 
-    println("reading response")
-    respose_data = read_all(stream1)
-
-    iob = IOBuffer(respose_data)
-
-    gRPC.deserialize_object!(iob, response)
+    println(" | reading response")
+    gRPC.deserialize_object!(stream1, response)
 
     return response
 end
@@ -185,6 +167,11 @@ function client_call()
     #for n in 1:10
     result = routeguide.GetFeature(routeGuide, controller, in_point)
     #end
+end
+
+function server_call()
+    socket = listen(5000)
+    server_call(socket)
 end
 
 function server_call(socket)
@@ -242,6 +229,22 @@ function test1()
 
     fetch(f1)
     fetch(f2)
+
+    close(socket)
+end
+
+function test2()
+    socket = listen(5000)
+
+    # listen(), then pass the socket
+    f1 = @spawnat 1 server_call(socket)
+
+    f2 = @spawnat 1 client_call()
+
+    fetch(f1)
+    fetch(f2)
+
+    close(socket)
 end
 
 # Verifies calling into Nghttp library.
@@ -314,6 +317,9 @@ end
         #gRPC.DEFAULT_STATUS_200)
 #"""
 
+    #test1()
+
+    #test2()
 
 
     #f2 = @spawnat 2 python_client()
