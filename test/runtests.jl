@@ -13,7 +13,7 @@
 
 
 Final list:
-[ ] Http2Stream can read buffer with given length
+[x] Http2Stream can read buffer with given length
 
 [ ] On error close the stream
 
@@ -45,21 +45,7 @@ from grpc.tools import command
 
     https://pypi.org/project/grpcio-tools/
 
-[ ] Working Python gRPC server/client example.
-
-[ ] Proto.jl
-
-    creates a Service descriptor
-
-    const _RouteGuide_methods = MethodDescriptor[
-        MethodDescriptor("GetFeature", 1, Point, Feature),
-        MethodDescriptor("ListFeatures", 2, Rectangle, Channel{Feature}),
-        MethodDescriptor("RecordRoute", 3, Channel{Point}, RouteSummary),
-        MethodDescriptor("RouteChat", 4, Channel{RouteNote}, Channel{RouteNote})
-    ] # const _RouteGuide_methods
-const _RouteGuide_desc = ServiceDescriptor("routeguide.RouteGuide", 1, _RouteGuide_methods)
-
-RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
+[x] Working Python gRPC server/client example.
 
 [ ] Investigate 
     Julia Proto implementation
@@ -216,7 +202,8 @@ function test1()
     addprocs(1)
 
     # Load python wrappers into the worker processes.
-    @everywhere include("test/py_helpers.jl")
+    @everywhere include("py_helpers.jl")
+    #@everywhere include("test/py_helpers.jl")
 
     socket = listen(5000)
 
@@ -245,6 +232,14 @@ function test2()
     fetch(f2)
 
     close(socket)
+end
+
+@testset "Python client" begin
+    test1()
+end
+
+@testset "Julia server client" begin
+    test2()
 end
 
 # Verifies calling into Nghttp library.
