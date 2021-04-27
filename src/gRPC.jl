@@ -1,21 +1,22 @@
 module gRPC
 
+import ProtoBuf: call_method
+
 using Nghttp2
 using ProtoBuf
 using Sockets
 
 export gRPCChannel, gRPCController
-export handle_request
+export handle_request, call_method
 
 """
     gRPC channel.
 """
 mutable struct gRPCChannel <: ProtoRpcChannel
     session::Http2ClientSession
-    stream_id::UInt32
 
     function gRPCChannel(session::Http2ClientSession)
-        return new(session, 0)
+        return new(session)
     end
 end
 
@@ -53,16 +54,16 @@ end
 const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc"]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
-const gRPC_Default_Request = [
-    ":method" => "POST",
-    ":path" => "/MlosAgent.ExperimentManagerService/Echo",
+#const gRPC_Default_Request = [
+#    ":method" => "POST",
+#    ":path" => "/MlosAgent.ExperimentManagerService/Echo",
 #    ":authority" => "localhost:5000",
-    ":authority" => "localhost",
-    ":scheme" => "http",
-    "content-type" => "application/grpc",
-    "user-agent" => "grpc-dotnet/2.29.0.0",
-    "grpc-accept-encoding" => "identity,gzip",
-    "te" => "trailers"]
+#    ":authority" => "localhost",
+#    ":scheme" => "http",
+#    "content-type" => "application/grpc",
+#    "user-agent" => "grpc-dotnet/2.29.0.0",
+#    "grpc-accept-encoding" => "identity,gzip",
+#    "te" => "trailers"]
 
 
 """
@@ -144,5 +145,43 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
         gRPC.DEFAULT_TRAILER)
 end
 
+
+
+"""
+    Client request.
+"""
+function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
+    println("|>internal call_method")
+    #stream1 = write_request(channel, controller, service, method, request)
+
+    path = "/" * service.name * "/" * method.name
+    headers = [":method" => "POST",
+               ":path" => path,
+               ":authority" => "localhost:5000",
+               ":scheme" => "http",
+               "user-agent" => "grpc-python/1.31.0 grpc-c/11.0.0 (windows; chttp2)",
+               "accept-encoding" => "identity,gzip",
+               "content-type" => "application/grpc",
+               "grpc-accept-encoding" => "identity,deflate,gzip",
+               "te" => "trailers"]
+
+    io = gRPC.serialize_object(request)
+
+    stream_id1 = submit_request(
+        channel.session,
+        io,
+        headers)
+    println("submited with stream_id: $(stream_id1)")
+
+    stream1 = recv(channel.session.session)
+
+    response_type = get_response_type(method)
+    response = response_type()
+
+    println(" | reading response")
+    gRPC.deserialize_object!(stream1, response)
+
+    return response
+end
 
 end # module gRPC

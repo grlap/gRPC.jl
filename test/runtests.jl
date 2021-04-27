@@ -3,7 +3,6 @@
     Julia <-> Julia does not work
     incorrectly pass the object...
 
-
     on
 
     arm64
@@ -22,24 +21,6 @@ Final list:
 ## Check which process opened the port.
     sudo lsof -nP -i4TCP:50051 | grep LISTEN
 
-[x] gRPC python
-
-[x] find gRPC examples
-    gRPC examples:
-    git clone -b v1.35.0 https://github.com/grpc/grpc
-
-[ ]
-    python -m grpc_tools.protoc -I../../protos --python_out=. --grpc_python_out=. ../../protos/route_guide.proto
-
-    /Users/greg/GitHub/Personal/gRPC.jl/test/proto
-    python -m grpc_tools.protoc -I. --grpc_python_out=. route_guide.proto
-
-    python -m grpc_tools.protoc -I./test/proto --grpc_python_out=. route_guide.proto
-
-    Install python gRPC
-    python -m pip install grpcio
-    python -m pip install grpcio-tools
-
 from grpc.tools import command
     command.build_package_protos(self.distribution.package_dir[''])
 
@@ -55,9 +36,6 @@ from grpc.tools import command
 """
 
 using Distributed
-
-import ProtoBuf: call_method
-
 using gRPC
 using Nghttp2
 using ProtoBuf
@@ -83,54 +61,6 @@ module RouteGuideTestHander
         return feature
     end
 end
-
-function write_request(
-    channel::gRPCChannel,
-    controller::gRPCController,
-    service::ServiceDescriptor,
-    method::MethodDescriptor,
-    request)
-    path = "/" * service.name * "/" * method.name
-    headers = [":method" => "POST",
-               ":path" => path,
-               ":authority" => "localhost:5000",
-               ":scheme" => "http",
-               "user-agent" => "grpc-python/1.31.0 grpc-c/11.0.0 (windows; chttp2)",
-               "accept-encoding" => "identity,gzip",
-               "content-type" => "application/grpc",
-               "grpc-accept-encoding" => "identity,deflate,gzip",
-               "te" => "trailers"]
-
-    io = gRPC.serialize_object(request)
-
-    stream_id1 = submit_request(
-        channel.session,
-        io,
-        headers)
-    println("submited with stream_id: $(stream_id1)")
-
-    stream1 = recv(channel.session.session)
-    return stream1
-end
-
-
-
-"""
-    Client request.
-"""
-function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
-    println("|>internal call_method")
-    stream1 = write_request(channel, controller, service, method, request)
-
-    response_type = get_response_type(method)
-    response = response_type()
-
-    println(" | reading response")
-    gRPC.deserialize_object!(stream1, response)
-
-    return response
-end
-
 
 function process(proto_service::ProtoService)
     println("process $(proto_service)")
@@ -178,22 +108,6 @@ function server_call(socket)
     println("5")
 end
 
-function test_serialize()
-
-    in_point = routeguide.Point()
-    in_point.latitude = 1
-    in_point.longitude = 2
-
-    iob = IOBuffer()
-    writeproto(iob, in_point)
-    seek(iob , 0)
-    @show read(iob)
-
-    #out_point = RouteGuideTestHander.routeguide.Point()
-    #readproto(iob, out_point)
-    #@show out_point
-end
-
 """
     Use python client.
 """
@@ -207,10 +121,7 @@ function test1()
 
     socket = listen(5000)
 
-    # listen(), then pass the socket
     f1 = @async server_call(socket)
-    # remove sleep
-    #sleep(1)
 
     f2 = @spawnat 2 python_client()
 
@@ -221,7 +132,9 @@ function test1()
 end
 
 function test2()
+    println("listen:")
     socket = listen(5000)
+    println("_listen:")
 
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)

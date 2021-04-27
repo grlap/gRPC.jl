@@ -1,13 +1,16 @@
-#
-using ProtoBuf
+"""
+    Generate proto files.
 
-proto_dir = "$(pwd())/test/proto"
-jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
-py_out_dir = "$(pwd())/test/python_test/mymodule"
+[x] Proto python
 
+[x] Proto Julia 
 
 """
-    Generate Julia gRPC files.
+
+using ProtoBuf
+
+"""
+    Generates Julia gRPC files.
 """
 function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
     if !isdir(jl_out_dir)
@@ -19,7 +22,11 @@ function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
 end
 
 """
-    Install pip3 modules.
+    Installs python gRPC modules.
+
+    Equivalent of running the commands:
+    python -m pip install grpcio
+    python -m pip install grpcio-tools
 """
 function python_install_requirements()
     pip_os = pyimport("pip")
@@ -29,7 +36,10 @@ function python_install_requirements()
 end
 
 """
-    Generate Python gRPC files.
+    Generates Python gRPC files.
+
+    Equivalent of running the command:
+    python -m grpc_tools.protoc -I../../protos --python_out=. --grpc_python_out=. ../../protos/route_guide.proto
 """
 function generate_python_grpc(proto_dir::String, py_out_dir::String)
     #if !isdir(py_out_dir)
@@ -44,11 +54,15 @@ function generate_python_grpc(proto_dir::String, py_out_dir::String)
     #end
 end
 
-    # Install gRPC modules
-    #python_install_requirements()
+proto_dir = "$(pwd())/test/proto"
+jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
+py_out_dir = "$(pwd())/test/python_test/mymodule"
 
-    # Julia codegen
-    #generate_julia_grpc(proto_dir, jl_out_dir)
+# Install gRPC modules
+#python_install_requirements()
 
-    # Python codegen
-    #generate_python_grpc(proto_dir, py_out_dir)
+# Julia codegen
+#generate_julia_grpc(proto_dir, jl_out_dir)
+
+# Python codegen
+#generate_python_grpc(proto_dir, py_out_dir)
