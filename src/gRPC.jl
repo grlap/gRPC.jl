@@ -71,12 +71,9 @@ const DEFAULT_TRAILER = ["grpc-status" => "0"]
 """
 function deserialize_object!(io::IO, instance::ProtoType)
     compressed = read(io, UInt8)
-    datalen = ntoh(read(io, UInt32))
+    data_len = ntoh(read(io, UInt32))
 
-    # TODO limit the input buffer size
-    iob = IOBuffer(read(io, datalen))
-    seek(iob, 0)
-    readproto(iob, instance)
+    readproto(io, instance)
 end
 
 """
@@ -99,7 +96,7 @@ end
     Process server request.
 """
 function handle_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
-    request_stream = recv(http2_server_session)
+    request_stream::Http2Stream = recv(http2_server_session)
     @show request_stream.headers
 
     headers = request_stream.headers
@@ -127,10 +124,10 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     # TODO
     # Limit the steam, should be in bghttp2
-    iob = IOBuffer(read(request_stream, datalen))
-    println("-> before deserialize")
-    seek(iob, 0)
-    readproto(iob, request_argument)
+    #iob = IOBuffer(read(request_stream, datalen))
+    #println("-> before deserialize")
+    #seek(iob, 0)
+    readproto(request_stream, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
     println("Prepare for response")
@@ -145,15 +142,10 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
         gRPC.DEFAULT_TRAILER)
 end
 
-
-
 """
     Client request.
 """
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
-    println("|>internal call_method")
-    #stream1 = write_request(channel, controller, service, method, request)
-
     path = "/" * service.name * "/" * method.name
     headers = [":method" => "POST",
                ":path" => path,
@@ -178,7 +170,6 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
     response_type = get_response_type(method)
     response = response_type()
 
-    println(" | reading response")
     gRPC.deserialize_object!(stream1, response)
 
     return response
