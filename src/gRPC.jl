@@ -159,13 +159,10 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
 
     io = gRPC.serialize_object(request)
 
-    stream_id1 = submit_request(
+    stream1 = submit_request(
         channel.session,
         io,
         headers)
-    println("submited with stream_id: $(stream_id1)")
-
-    stream1 = recv(channel.session.session)
 
     response_type = get_response_type(method)
     response = response_type()
