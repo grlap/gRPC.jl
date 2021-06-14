@@ -4,7 +4,7 @@ function config_py_path()
     println(@__DIR__)
     # Both are required for proper imports
     pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
-    pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
+    return pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
 end
 
 """

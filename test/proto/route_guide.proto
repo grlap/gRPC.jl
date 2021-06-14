@@ -49,7 +49,11 @@ service RouteGuide {
   //
   // Accepts a stream of RouteNotes sent while a route is being traversed,
   // while receiving other RouteNotes (e.g. from other users).
+
+  rpc RouteEcho(RouteNote) returns (RouteNote) {}
+
   rpc RouteChat(stream RouteNote) returns (stream RouteNote) {}
+
 }
 
 // Points are represented as latitude-longitude pairs in the E7 representation

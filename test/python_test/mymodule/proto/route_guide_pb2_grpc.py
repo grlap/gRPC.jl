@@ -30,6 +30,11 @@ class RouteGuideStub(object):
                 request_serializer=proto_dot_route__guide__pb2.Point.SerializeToString,
                 response_deserializer=proto_dot_route__guide__pb2.RouteSummary.FromString,
                 )
+        self.RouteEcho = channel.unary_unary(
+                '/routeguide.RouteGuide/RouteEcho',
+                request_serializer=proto_dot_route__guide__pb2.RouteNote.SerializeToString,
+                response_deserializer=proto_dot_route__guide__pb2.RouteNote.FromString,
+                )
         self.RouteChat = channel.stream_stream(
                 '/routeguide.RouteGuide/RouteChat',
                 request_serializer=proto_dot_route__guide__pb2.RouteNote.SerializeToString,
@@ -75,12 +80,18 @@ class RouteGuideServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RouteChat(self, request_iterator, context):
+    def RouteEcho(self, request, context):
         """A Bidirectional streaming RPC.
 
         Accepts a stream of RouteNotes sent while a route is being traversed,
         while receiving other RouteNotes (e.g. from other users).
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RouteChat(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -102,6 +113,11 @@ def add_RouteGuideServicer_to_server(servicer, server):
                     servicer.RecordRoute,
                     request_deserializer=proto_dot_route__guide__pb2.Point.FromString,
                     response_serializer=proto_dot_route__guide__pb2.RouteSummary.SerializeToString,
+            ),
+            'RouteEcho': grpc.unary_unary_rpc_method_handler(
+                    servicer.RouteEcho,
+                    request_deserializer=proto_dot_route__guide__pb2.RouteNote.FromString,
+                    response_serializer=proto_dot_route__guide__pb2.RouteNote.SerializeToString,
             ),
             'RouteChat': grpc.stream_stream_rpc_method_handler(
                     servicer.RouteChat,
@@ -167,6 +183,23 @@ class RouteGuide(object):
         return grpc.experimental.stream_unary(request_iterator, target, '/routeguide.RouteGuide/RecordRoute',
             proto_dot_route__guide__pb2.Point.SerializeToString,
             proto_dot_route__guide__pb2.RouteSummary.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RouteEcho(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/routeguide.RouteGuide/RouteEcho',
+            proto_dot_route__guide__pb2.RouteNote.SerializeToString,
+            proto_dot_route__guide__pb2.RouteNote.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

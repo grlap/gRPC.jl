@@ -2,6 +2,7 @@ module gRPC
 
 import ProtoBuf: call_method
 
+using CodecZlib
 using Nghttp2
 using ProtoBuf
 using Sockets
@@ -23,8 +24,7 @@ end
 """
     gRPCController.
 """
-struct gRPCController <: ProtoRpcController
-end
+struct gRPCController <: ProtoRpcController end
 
 """
     gRPC server implementation
@@ -54,26 +54,16 @@ end
 const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc"]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
-#const gRPC_Default_Request = [
-#    ":method" => "POST",
-#    ":path" => "/MlosAgent.ExperimentManagerService/Echo",
-#    ":authority" => "localhost:5000",
-#    ":authority" => "localhost",
-#    ":scheme" => "http",
-#    "content-type" => "application/grpc",
-#    "user-agent" => "grpc-dotnet/2.29.0.0",
-#    "grpc-accept-encoding" => "identity,gzip",
-#    "te" => "trailers"]
-
-
 """
     Deserialize the instance of the proto object from the stream.
 """
 function deserialize_object!(io::IO, instance::ProtoType)
+    println("[->] deserialize_object!")
     compressed = read(io, UInt8)
     data_len = ntoh(read(io, UInt32))
+    println("compressed: $(compressed) data_len: $(data_len)")
 
-    readproto(io, instance)
+    return readproto(io, instance)
 end
 
 """
@@ -96,6 +86,8 @@ end
     Process server request.
 """
 function handle_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
+    println("[->] handle_request!")
+
     request_stream::Http2Stream = recv(http2_server_session)
     @show request_stream.headers
 
@@ -118,16 +110,19 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     @show request_type
     request_argument = request_type()
 
+    #deserialize_object!(request_stream, request_argument)
     compressed = read(request_stream, UInt8)
     datalen = ntoh(read(request_stream, UInt32))
-    @show compressed, datalen, request_type
 
-    # TODO
-    # Limit the steam, should be in bghttp2
-    #iob = IOBuffer(read(request_stream, datalen))
-    #println("-> before deserialize")
-    #seek(iob, 0)
-    readproto(request_stream, request_argument)
+    if compressed == 1
+        arg_stream = GzipDecompressorStream(request_stream)
+
+        @show compressed, datalen, request_type
+        readproto(arg_stream, request_argument)
+    else
+        @show compressed, datalen, request_type
+        readproto(request_stream, request_argument)
+    end
 
     response = call_method(proto_service, method, controller, request_argument)
     println("Prepare for response")
@@ -135,11 +130,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     io = serialize_object(response)
 
     println("-> submit_response")
-    submit_response(
-        request_stream,
-        io,
-        gRPC.DEFAULT_STATUS_200,
-        gRPC.DEFAULT_TRAILER)
+    return submit_response(request_stream, io, gRPC.DEFAULT_STATUS_200, gRPC.DEFAULT_TRAILER)
 end
 
 """
@@ -147,27 +138,17 @@ end
 """
 function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
     path = "/" * service.name * "/" * method.name
-    headers = [":method" => "POST",
-               ":path" => path,
-               ":authority" => "localhost:5000",
-               ":scheme" => "http",
-               "user-agent" => "grpc-python/1.31.0 grpc-c/11.0.0 (windows; chttp2)",
-               "accept-encoding" => "identity,gzip",
-               "content-type" => "application/grpc",
-               "grpc-accept-encoding" => "identity,deflate,gzip",
-               "te" => "trailers"]
+    headers = [":method" => "POST", ":path" => path, ":authority" => "localhost:5000", ":scheme" => "http", "user-agent" => "grpc-julia", "accept-encoding" => "identity,gzip",
+               "content-type" => "application/grpc", "grpc-accept-encoding" => "identity,deflate,gzip", "te" => "trailers"]
 
     io = gRPC.serialize_object(request)
 
-    stream1 = submit_request(
-        channel.session,
-        io,
-        headers)
+    stream1 = submit_request(channel.session, io, headers)
 
     response_type = get_response_type(method)
     response = response_type()
 
-    gRPC.deserialize_object!(stream1, response)
+    deserialize_object!(stream1, response)
 
     return response
 end

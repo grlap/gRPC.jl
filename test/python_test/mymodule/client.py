@@ -2,11 +2,14 @@ import grpc
 
 import random
 
+from grpc._cython.cygrpc import CompressionAlgorithm, CompressionLevel
+
 import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
 import proto.route_guide_pb2 as route_guide_pb2
 
 import threading
 from multiprocessing import Process
+
 
 def make_route_note(message, latitude, longitude):
     return route_guide_pb2.RouteNote(
@@ -15,7 +18,7 @@ def make_route_note(message, latitude, longitude):
 
 
 def guide_get_one_feature(stub, point):
-    feature = stub.GetFeature(point)
+    feature = stub.GetFeature(point, compression=grpc.Compression.Deflate)
     print(feature)
     if not feature.location:
         print("Server returned incomplete feature")
@@ -30,7 +33,7 @@ def guide_get_one_feature(stub, point):
 def guide_get_feature(stub):
     guide_get_one_feature(stub, route_guide_pb2.Point(latitude=1, longitude=2))
 
-    #guide_get_one_feature(stub, route_guide_pb2.Point(latitude=0, longitude=0))
+    # guide_get_one_feature(stub, route_guide_pb2.Point(latitude=0, longitude=0))
 
 
 def guide_list_features(stub):
@@ -87,10 +90,17 @@ def run():
     # NOTE(gRPC Python Team): .close() is possible on a channel and should be
     # used in circumstances in which the with statement does not fit the needs
     # of the code.
-    with grpc.insecure_channel('localhost:5000') as channel:
+    channel_options = [('grpc.default_compression_algorithm', CompressionAlgorithm.gzip),
+                       ('grpc.grpc.default_compression_level', CompressionLevel.high)]
+
+    with grpc.insecure_channel('localhost:5000',  compression = CompressionAlgorithm.deflate) as channel:
         stub = route_guide_pb2_grpc.RouteGuideStub(channel)
+
+        messages = make_route_note("First messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst message", 0, 0);
+        res = stub.RouteEcho(messages)
+
         print("-------------- GetFeature --------------")
-        guide_get_feature(stub)
+        # guide_get_feature(stub)
         # print("-------------- ListFeatures --------------")
         # guide_list_features(stub)
         # print("-------------- RecordRoute --------------")
@@ -98,13 +108,13 @@ def run():
         # print("-------------- RouteChat --------------")
         # guide_route_chat(stub)
 
+
 def run_p():
-    p = Process(target = run)
+    p = Process(target=run)
     p.start()
     return p
 
+
 if __name__ == '__main__':
-    run_p()
+    run()
     print("Goodbye, World!")
-
-

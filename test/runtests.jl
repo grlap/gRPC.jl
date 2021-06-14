@@ -50,22 +50,30 @@ include("proto/proto_jl_out/routeguide.jl")
     Handler.
 """
 module RouteGuideTestHander
-    include("proto/proto_jl_out/routeguide.jl")
+include("proto/proto_jl_out/routeguide.jl")
 
-    function GetFeature(point::routeguide.Point)
-        println("->GetFeature")
-        @show point
-        feature = routeguide.Feature()
-        feature.name = "from_julia"
-        feature.location = point
-        return feature
-    end
+function GetFeature(point::routeguide.Point)
+    println("->GetFeature")
+    @show point
+    feature = routeguide.Feature()
+    feature.name = "from_julia"
+    feature.location = point
+    return feature
+end
+
+function RouteEcho(route_note::routeguide.RouteNote)
+    println("->RouteEcho")
+    @show route_note
+    res = routeguide.RouteNote()
+    res.message = "from_julia"
+    return res
+end
 end
 
 function process(proto_service::ProtoService)
     println("process $(proto_service)")
+    return nothing
 end
-
 
 function client_call()
     println("connect_1")
@@ -83,11 +91,13 @@ function client_call()
     #for n in 1:10
     result = routeguide.GetFeature(routeGuide, controller, in_point)
     #end
+    return nothing
 end
 
 function server_call()
     socket = listen(5000)
     server_call(socket)
+    return nothing
 end
 
 function server_call(socket)
@@ -106,6 +116,7 @@ function server_call(socket)
 
     handle_request(nghttp2_server_session, controller, route_guide_proto_service)
     println("5")
+    return nothing
 end
 
 """
@@ -129,6 +140,7 @@ function test1()
     fetch(f2)
 
     close(socket)
+    return nothing
 end
 
 function test2()
@@ -145,6 +157,7 @@ function test2()
     fetch(f2)
 
     close(socket)
+    return nothing
 end
 
 @testset "Python client" begin
@@ -164,7 +177,6 @@ end
     #py_os = pyimport("os")
     #@show py_os.__file__
 
-
     # Configure python path for the local imports.
     println(@__DIR__)
     # Both are required for proper imports
@@ -172,37 +184,36 @@ end
     pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
     #call_python()
 
-@show Threads.nthreads()
+    @show Threads.nthreads()
 
     # Server
-# import Base.Threads.@spawn
-# s1 = @spawn server_call()
-# s2 = @spawn python_client()
-#import Base.Threads.@spawn
-#@spawn python_client()
-#@spawn server_call()
-# f1=remotecall(server_call, 2)
-# f2=remotecall(python_client, 3)
-
+    # import Base.Threads.@spawn
+    # s1 = @spawn server_call()
+    # s2 = @spawn python_client()
+    #import Base.Threads.@spawn
+    #@spawn python_client()
+    #@spawn server_call()
+    # f1=remotecall(server_call, 2)
+    # f2=remotecall(python_client, 3)
 
     #f2 = @spawnat 2 python_client()
     #fetch(f2)
 
     #println("1")
     #t1 = @task begin
-        #python_client()
+    #python_client()
     #end
 
     #t3 = @task begin
-        #client_call()
+    #client_call()
     #end
 
-###"""
+    ###"""
     #t2 = @task begin
-        #server_call()
+    #server_call()
     #end
     #schedule(t2);
-# """
+    # """
 
     println("s1")
     #schedule(t2);
@@ -220,20 +231,17 @@ end
     #@show send_buffer
 
     #send(http2_session,
-        #stream_id,
-        #send_buffer,
-        #gRPC.DEFAULT_STATUS_200)
-#"""
+    #stream_id,
+    #send_buffer,
+    #gRPC.DEFAULT_STATUS_200)
+    #"""
 
     #test1()
 
     #test2()
-
 
     #f2 = @spawnat 2 python_client()
     println("Hello after")
 
     @test true
 end
-
-

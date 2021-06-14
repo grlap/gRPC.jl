@@ -4,6 +4,7 @@ authors = ["Greg Lapinski <grzegorz.lapinski@live.com>"]
 version = "0.1.0"
 
 [deps]
+CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 Nghttp2 = "d59d01c2-cedb-43fa-bb24-e6eaeb189957"
 ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
