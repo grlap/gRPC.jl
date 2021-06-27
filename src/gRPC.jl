@@ -48,10 +48,13 @@ struct gRPCController <: ProtoRpcController end
 #    end
 #end
 
+# https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
+
 """
     gRPC Http2 responces.
 """
-const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc"]
+const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
+const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
 """
@@ -63,7 +66,17 @@ function deserialize_object!(io::IO, instance::ProtoType)
     data_len = ntoh(read(io, UInt32))
     println("compressed: $(compressed) data_len: $(data_len)")
 
-    return readproto(io, instance)
+    if compressed == 1
+        io = GzipDecompressorStream(io)
+    end
+
+    readproto(io, instance)
+
+    if compressed == 1
+        finalize(io)
+    end
+
+    return nothing
 end
 
 """
@@ -72,12 +85,31 @@ end
 function serialize_object(instance::ProtoType)
     iob = IOBuffer()
     # No compresion.
-    write(iob, UInt8(0))
+    write(iob, UInt8(1))
+
+    iob_proto = IOBuffer()
+    data_len = writeproto(iob_proto, instance)
+    seek(iob_proto, 0)
+
+    compressed = transcode(GzipCompressor, read(iob_proto))
+    @show compressed
+
+    @show compressed
+
+    write(iob, hton(UInt32(length(compressed))))
+    write(iob, compressed)
+
+    @show iob
+
     # Placeholder for the serialized object length.
-    write(iob, hton(UInt32(0)))
-    data_len = writeproto(iob, instance)
-    seek(iob, 1)
-    write(iob, hton(UInt32(data_len)))
+    #data_len = writeproto(iob, instance)
+    #@show  length(read(compressed_stream))
+    #write(iob, hton(UInt32(0)))
+    #data_len = writeproto(iob, instance)
+    #seek(iob, 1)
+    #write(iob, hton(UInt32(data_len)))
+
+
     seek(iob, 0)
     return iob
 end
@@ -104,25 +136,13 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     sevice_name, method_name = path_components
 
     method = find_method(proto_service, method_name)
-    @show method
+    @show sevice_name, method
 
     request_type = get_request_type(proto_service, method)
     @show request_type
     request_argument = request_type()
 
-    #deserialize_object!(request_stream, request_argument)
-    compressed = read(request_stream, UInt8)
-    datalen = ntoh(read(request_stream, UInt32))
-
-    if compressed == 1
-        arg_stream = GzipDecompressorStream(request_stream)
-
-        @show compressed, datalen, request_type
-        readproto(arg_stream, request_argument)
-    else
-        @show compressed, datalen, request_type
-        readproto(request_stream, request_argument)
-    end
+    deserialize_object!(request_stream, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
     println("Prepare for response")

@@ -23,20 +23,6 @@ function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
 end
 
 """
-    Installs python gRPC modules.
-
-    Equivalent of running the commands:
-    python -m pip install grpcio
-    python -m pip install grpcio-tools
-"""
-function python_install_requirements()
-    pip_os = pyimport("pip")
-    pip_os.main(["list"])
-    pip_os.main(["install", "grpcio"])
-    return pip_os.main(["install", "grpcio-tools"])
-end
-
-"""
     Generates Python gRPC files.
 
     Equivalent of running the command:
@@ -60,10 +46,10 @@ jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
 py_out_dir = "$(pwd())/test/python_test/mymodule"
 
 # Install gRPC modules
-python_install_requirements()
+#python_install_requirements()
 
 # Julia codegen
-generate_julia_grpc(proto_dir, jl_out_dir)
+#generate_julia_grpc(proto_dir, jl_out_dir)
 
 # Python codegen
-generate_python_grpc(proto_dir, py_out_dir)
+#generate_python_grpc(proto_dir, py_out_dir)
