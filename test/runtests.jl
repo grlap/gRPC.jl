@@ -131,8 +131,9 @@ function client_call_2()
 end
 
 function server_call()
-    socket = listen(5200)
+    socket = listen(IPv4(0), 5200)
     server_call(socket)
+    close(socket)
     return nothing
 end
 
@@ -166,16 +167,13 @@ function test1()
     @everywhere include("py_helpers.jl")
     #@everywhere include("test/py_helpers.jl")
 
-    socket = listen(5200)
-
-    f1 = @spawnat 1 server_call(socket)
+    f1 = @async server_call()
 
     f2 = @spawnat 2 python_client()
 
     fetch(f1)
     fetch(f2)
 
-    close(socket)
     return nothing
 end
 
