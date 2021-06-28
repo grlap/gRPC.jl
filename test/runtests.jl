@@ -96,7 +96,7 @@ end
 function client_call()
     println("connect_1")
     controller = gRPCController()
-    tcp_connection = connect(5000)
+    tcp_connection = connect(5200)
     @show tcp_connection
     grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
 
@@ -115,7 +115,7 @@ end
 function client_call_2()
     println("connect_2")
     controller = gRPCController()
-    tcp_connection = connect(5000)
+    tcp_connection = connect(5200)
     @show tcp_connection
     grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
 
@@ -131,7 +131,7 @@ function client_call_2()
 end
 
 function server_call()
-    socket = listen(5000)
+    socket = listen(5200)
     server_call(socket)
     return nothing
 end
@@ -166,9 +166,9 @@ function test1()
     @everywhere include("py_helpers.jl")
     #@everywhere include("test/py_helpers.jl")
 
-    socket = listen(5000)
+    socket = listen(5200)
 
-    f1 = @async server_call(socket)
+    f1 = @spawnat 1 server_call(socket)
 
     f2 = @spawnat 2 python_client()
 
@@ -181,7 +181,7 @@ end
 
 function test2()
     println("listen:")
-    socket = listen(5000)
+    socket = listen(5200)
     println("_listen:")
 
     # listen(), then pass the socket
