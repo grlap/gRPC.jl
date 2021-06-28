@@ -20,12 +20,13 @@ function python_client()
         def hello_from_module(name: str) -> str:
             try:
                 import sys
+                import traceback
                 import python_test.mymodule.client as cl
 
                 cl.run()
             except:
                 e = sys.exc_info()[0]
-                return str(e.details())
+                return str(traceback.format_exc())
 
             return "=>OK"
         """
