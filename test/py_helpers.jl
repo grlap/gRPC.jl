@@ -25,7 +25,7 @@ function python_client()
                 cl.run()
             except:
                 e = sys.exc_info()[0]
-                return str(e)
+                return str(e.details())
 
             return "=>OK"
         """
