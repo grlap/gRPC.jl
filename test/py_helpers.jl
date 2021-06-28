@@ -18,10 +18,10 @@ function python_client()
         # Calling from gRPC.jl/test.
         py"""
         def hello_from_module(name: str) -> str:
-            import sys
-            import python_test.mymodule.client as cl
-
             try:
+                import sys
+                import python_test.mymodule.client as cl
+
                 cl.run()
             except:
                 e = sys.exc_info()[0]
