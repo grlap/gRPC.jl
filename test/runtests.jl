@@ -133,7 +133,6 @@ end
 function server_call()
     socket = listen(IPv4(0), 5200)
     server_call(socket)
-    close(socket)
     return nothing
 end
 
@@ -175,6 +174,8 @@ function test1()
 
     fetch(f1)
     fetch(f2)
+
+    close(socket)
 
     return nothing
 end
