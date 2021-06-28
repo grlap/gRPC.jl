@@ -167,9 +167,11 @@ function test1()
     @everywhere include("py_helpers.jl")
     #@everywhere include("test/py_helpers.jl")
 
-    f1 = @async server_call()
+    socket = listen(5200)
 
     f2 = @spawnat 2 python_client()
+
+    f1 = @async server_call(socket)
 
     fetch(f1)
     fetch(f2)
