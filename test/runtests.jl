@@ -170,10 +170,10 @@ function test1()
 
     f2 = @spawnat 2 python_client()
 
-    #f1 = @async server_call(socket)
+    f1 = @async server_call(socket)
 
     fetch(f2)
-    #fetch(f1)
+    fetch(f1)
 
     close(socket)
 
