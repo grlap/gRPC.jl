@@ -172,8 +172,8 @@ function test1()
 
     f1 = @async server_call(socket)
 
-    fetch(f1)
     fetch(f2)
+    fetch(f1)
 
     close(socket)
 
