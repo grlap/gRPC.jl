@@ -93,10 +93,12 @@ def run():
     channel_options = [('grpc.default_compression_algorithm', CompressionAlgorithm.gzip),
                        ('grpc.grpc.default_compression_level', CompressionLevel.high)]
 
-    with grpc.insecure_channel('localhost:5200',  compression = CompressionAlgorithm.gzip) as channel:
+    with grpc.insecure_channel('localhost:50200', compression=CompressionAlgorithm.gzip) as channel:
         stub = route_guide_pb2_grpc.RouteGuideStub(channel)
 
-        messages = make_route_note("First messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst message", 0, 0);
+        messages = make_route_note(
+            "First messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst messageFirst message",
+            0, 0)
         res = stub.RouteEcho(messages)
 
         print("-------------- GetFeature --------------")
