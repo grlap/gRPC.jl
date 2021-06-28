@@ -112,6 +112,24 @@ function client_call()
     return nothing
 end
 
+function client_call_2()
+    println("connect_2")
+    controller = gRPCController()
+    tcp_connection = connect(5000)
+    @show tcp_connection
+    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
+
+    routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
+
+    in_rect = routeguide.Rectangle()
+
+    #for n in 1:10
+    result = routeguide.ListFeatures(routeGuide, controller, in_rect)
+    @show result
+    #end
+    return nothing
+end
+
 function server_call()
     socket = listen(5000)
     server_call(socket)
@@ -179,7 +197,7 @@ function test2()
 end
 
 @testset "Python client" begin
-    #test1()
+    test1()
 end
 
 @testset "Julia server client" begin
@@ -188,7 +206,6 @@ end
 
 # Verifies calling into Nghttp library.
 @testset "gRPC " begin
-
     # Example how to use PyCall
     #py_sys = pyimport("sys")
     #@show py_sys.version

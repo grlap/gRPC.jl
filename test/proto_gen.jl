@@ -8,6 +8,7 @@
 """
 
 using ProtoBuf
+using PyCall
 
 """
     Generates Julia gRPC files.
@@ -45,11 +46,9 @@ proto_dir = "$(pwd())/test/proto"
 jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
 py_out_dir = "$(pwd())/test/python_test/mymodule"
 
-# Install gRPC modules
-#python_install_requirements()
-
 # Julia codegen
-#generate_julia_grpc(proto_dir, jl_out_dir)
+generate_julia_grpc(proto_dir, jl_out_dir)
 
 # Python codegen
-#generate_python_grpc(proto_dir, py_out_dir)
+generate_python_grpc(proto_dir, py_out_dir)
+

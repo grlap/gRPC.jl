@@ -55,16 +55,9 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
         return route_guide_pb2.Feature(name="my_name", location=request)
 
     def ListFeatures(self, request, context):
-        left = min(request.lo.longitude, request.hi.longitude)
-        right = max(request.lo.longitude, request.hi.longitude)
-        top = max(request.lo.latitude, request.hi.latitude)
-        bottom = min(request.lo.latitude, request.hi.latitude)
-        for feature in self.db:
-            if (feature.location.longitude >= left and
-                    feature.location.longitude <= right and
-                    feature.location.latitude >= bottom and
-                    feature.location.latitude <= top):
-                yield feature
+        yield route_guide_pb2.Feature(name="12")
+        yield route_guide_pb2.Feature(name="123932-04-034", location = route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
+        yield route_guide_pb2.Feature(name="1234", location = route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
 
     def RecordRoute(self, request_iterator, context):
         point_count = 0
@@ -97,15 +90,13 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(
-        RouteGuideServicer(), server)
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(), server)
     server.add_insecure_port('[::]:5000')
     server.start()
     server.wait_for_termination()
 
 
 if __name__ == '__main__':
-    x = 1
     serve()
     print("Goodbye, World!")

@@ -57,6 +57,85 @@ const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/g
 const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
+struct Stream{T}
+    io::IO
+
+    function Stream{T}() where {T<:ProtoType}
+        return new(devnull)
+    end
+
+    function Stream{T}(io::IO) where {T<:ProtoType}
+        return new(io)
+    end
+end
+
+function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
+    return Stream{T}()
+end
+
+function Base.iterate(stream::Stream{T}, s=nothing) where {T<:ProtoType}
+    if eof(stream.io)
+        return nothing
+    end
+
+    local compressed::Bool
+    try
+        compressed = read(stream.io, UInt8)
+    catch e
+        if isa(e, EOFError)
+            return nothing
+        else
+            rethrow()
+        end
+    end
+
+    data_len = ntoh(read(stream.io, UInt32))
+    @show bytesavailable(stream.io)
+
+    data = read(stream.io, data_len)
+
+    instance::T = T()
+    readproto(IOBuffer(data), instance)
+
+    return (instance, 1)
+end
+
+function deserialize_object!(io::IO, instance::Stream{T}) where {T<:ProtoType}
+    println("[->] deserialize_stream!")
+
+    results = Stream{T}(io)
+    return results
+
+    #local compressed::Bool
+    #while isopen(io)
+    #        try
+    #compressed = read(io, UInt8)
+    #catch e
+    #if isa(e, EOFError)
+    #   return nothing
+    #else
+    #rethrow()
+    #end
+    #end
+
+    #data_len = ntoh(read(io, UInt32))
+    #println("data_len: $(data_len)")
+    #@show bytesavailable(io)
+
+    #data = read(io, data_len)
+    #@show data
+
+    #instance::T = T()
+    #@show instance
+    #println("before read")
+    #readproto(IOBuffer(data), instance)
+    #println("after read")
+    #@show instance
+
+    #@show io.headers
+    #end
+end
+
 """
     Deserialize the instance of the proto object from the stream.
 """
@@ -76,7 +155,7 @@ function deserialize_object!(io::IO, instance::ProtoType)
         finalize(io)
     end
 
-    return nothing
+    return instance
 end
 
 """
@@ -84,32 +163,33 @@ end
 """
 function serialize_object(instance::ProtoType)
     iob = IOBuffer()
-    # No compresion.
-    write(iob, UInt8(1))
 
-    iob_proto = IOBuffer()
-    data_len = writeproto(iob_proto, instance)
-    seek(iob_proto, 0)
+    # Compresion.
+    #    write(iob, UInt8(1))
 
-    compressed = transcode(GzipCompressor, read(iob_proto))
-    @show compressed
+    #    iob_proto = IOBuffer()
+    #    data_len = writeproto(iob_proto, instance)
+    #    seek(iob_proto, 0)
 
-    @show compressed
+    #    compressed = transcode(GzipCompressor, read(iob_proto))
+    #    @show compressed
 
-    write(iob, hton(UInt32(length(compressed))))
-    write(iob, compressed)
+    #    @show compressed
 
-    @show iob
+    #    write(iob, hton(UInt32(length(compressed))))
+    #    write(iob, compressed)
 
+    #    @show iob
+
+    # No compression
+    write(iob, UInt8(0))
     # Placeholder for the serialized object length.
-    #data_len = writeproto(iob, instance)
-    #@show  length(read(compressed_stream))
-    #write(iob, hton(UInt32(0)))
-    #data_len = writeproto(iob, instance)
-    #seek(iob, 1)
-    #write(iob, hton(UInt32(data_len)))
+    write(iob, hton(UInt32(0)))
+    data_len = writeproto(iob, instance)
+    seek(iob, 1)
+    write(iob, hton(UInt32(data_len)))
 
-
+    #
     seek(iob, 0)
     return iob
 end
@@ -166,11 +246,14 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
     stream1 = submit_request(channel.session, io, headers)
 
     response_type = get_response_type(method)
+
     response = response_type()
 
-    deserialize_object!(stream1, response)
+    @show response_type
 
-    return response
+    instance = deserialize_object!(stream1, response)
+
+    return instance
 end
 
 end # module gRPC
