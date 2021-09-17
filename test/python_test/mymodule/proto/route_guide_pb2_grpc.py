@@ -40,6 +40,11 @@ class RouteGuideStub(object):
                 request_serializer=proto_dot_route__guide__pb2.RouteNote.SerializeToString,
                 response_deserializer=proto_dot_route__guide__pb2.RouteNote.FromString,
                 )
+        self.TerminateServer = channel.unary_unary(
+                '/routeguide.RouteGuide/TerminateServer',
+                request_serializer=proto_dot_route__guide__pb2.Empty.SerializeToString,
+                response_deserializer=proto_dot_route__guide__pb2.Empty.FromString,
+                )
 
 
 class RouteGuideServicer(object):
@@ -85,12 +90,19 @@ class RouteGuideServicer(object):
 
         Accepts a stream of RouteNotes sent while a route is being traversed,
         while receiving other RouteNotes (e.g. from other users).
+
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RouteChat(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TerminateServer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -123,6 +135,11 @@ def add_RouteGuideServicer_to_server(servicer, server):
                     servicer.RouteChat,
                     request_deserializer=proto_dot_route__guide__pb2.RouteNote.FromString,
                     response_serializer=proto_dot_route__guide__pb2.RouteNote.SerializeToString,
+            ),
+            'TerminateServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.TerminateServer,
+                    request_deserializer=proto_dot_route__guide__pb2.Empty.FromString,
+                    response_serializer=proto_dot_route__guide__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -217,5 +234,22 @@ class RouteGuide(object):
         return grpc.experimental.stream_stream(request_iterator, target, '/routeguide.RouteGuide/RouteChat',
             proto_dot_route__guide__pb2.RouteNote.SerializeToString,
             proto_dot_route__guide__pb2.RouteNote.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TerminateServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/routeguide.RouteGuide/TerminateServer',
+            proto_dot_route__guide__pb2.Empty.SerializeToString,
+            proto_dot_route__guide__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

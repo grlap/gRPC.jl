@@ -93,6 +93,17 @@ function process(proto_service::ProtoService)
     return nothing
 end
 
+function configure_pycall()
+    # Create a worker process, where we run python interpreter.
+    addprocs(1)
+
+    # Load python wrappers into the worker processes.
+    @everywhere include("py_helpers.jl")
+    #@everywhere include("test/py_helpers.jl")
+end
+
+configure_pycall()
+
 function client_call()
     println("connect_1")
     controller = gRPCController()
@@ -109,6 +120,9 @@ function client_call()
     #for n in 1:10
     result = routeguide.GetFeature(routeGuide, controller, in_point)
     #end
+
+    _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
+
     return nothing
 end
 
@@ -127,6 +141,9 @@ function client_call_2()
     result = routeguide.ListFeatures(routeGuide, controller, in_rect)
     @show result
     #end
+
+    _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
+
     return nothing
 end
 
@@ -159,13 +176,6 @@ end
     Use python client.
 """
 function test1()
-    # Create a worker process, where we run python interpreter.
-    addprocs(1)
-
-    # Load python wrappers into the worker processes.
-    @everywhere include("py_helpers.jl")
-    #@everywhere include("test/py_helpers.jl")
-
     socket = listen(50200)
 
     f2 = @spawnat 2 python_client()
@@ -180,6 +190,20 @@ function test1()
     return nothing
 end
 
+function wait_for_server(port::UInt16)
+    connected = false
+    while !connected
+        connected = try
+            connect(port)
+            true
+        catch e
+            println("waiting")
+            sleep(1)
+            false
+        end
+    end
+end
+
 function test2()
     println("listen:")
     socket = listen(50200)
@@ -188,25 +212,49 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
+    # TODO improve
+    # Wait for the server.
+    sleep(2)
+
+    
+
     f2 = @spawnat 1 client_call()
 
-    fetch(f1)
     fetch(f2)
+    fetch(f1)
 
     close(socket)
     return nothing
 end
 
-@testset "Python client" begin
+function test3()
+    f2 = @spawnat 2 python_server()
+
+    wait_for_server(UInt16(50200))
+
+    f1 = @spawnat 1 client_call()
+
+    fetch(f1)
+    fetch(f2)
+
+    return nothing
+    
+end
+
+@testset "Python client - Julia server" begin
     test1()
 end
 
-@testset "Julia server client" begin
+@testset "Julia server and client" begin
     test2()
 end
 
+@testset "Python server - Julia client" begin
+    test3()
+end
+
 # Verifies calling into Nghttp library.
-@testset "gRPC " begin
+#@testset "gRPC " begin
     # Example how to use PyCall
     #py_sys = pyimport("sys")
     #@show py_sys.version
@@ -214,13 +262,13 @@ end
     #@show py_os.__file__
 
     # Configure python path for the local imports.
-    println(@__DIR__)
+    #println(@__DIR__)
     # Both are required for proper imports
-    pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
-    pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
+    #pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
+    #pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
     #call_python()
 
-    @show Threads.nthreads()
+    #@show Threads.nthreads()
 
     # Server
     # import Base.Threads.@spawn
@@ -251,7 +299,7 @@ end
     #schedule(t2);
     # """
 
-    println("s1")
+    #println("s1")
     #schedule(t2);
     #println("s2")
     #schedule(t1);
@@ -277,7 +325,7 @@ end
     #test2()
 
     #f2 = @spawnat 2 python_client()
-    println("Hello after")
+    #println("Hello after")
 
-    @test true
-end
+    #@test true
+#end

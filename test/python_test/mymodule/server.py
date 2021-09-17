@@ -47,8 +47,9 @@ def get_distance(start, end):
 class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
     """Provides methods that implement functionality of route guide server."""
 
-    def __init__(self):
+    def __init__(self, server):
         x = 1
+        self.server = server
 
     def GetFeature(self, request, context):
         request.latitude = 89
@@ -88,11 +89,15 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
                     yield prev_note
             prev_notes.append(new_note)
 
+    def TerminateServer(self, request, context):
+        print("TerminateServer!")
+        self.server.stop(1)
+        return route_guide_pb2.Empty()
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(), server)
-    server.add_insecure_port('[::]:5000')
+    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
+    server.add_insecure_port('[::]:50200')
     server.start()
     server.wait_for_termination()
 
