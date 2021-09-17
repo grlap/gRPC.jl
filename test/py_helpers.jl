@@ -11,17 +11,28 @@ end
     Calling into python.
 """
 function python_client()
-    config_py_path()
-    println("[[$(Threads.threadid())]] python_client")
+    try
+        config_py_path()
+        println("[[$(Threads.threadid())]] python_client")
 
-    # Calling from gRPC.jl/test.
-    py"""
-    def hello_from_module(name: str) -> str:
-        import python_test.mymodule.client as cl
+        # Calling from gRPC.jl/test.
+        py"""
+        def hello_from_module(name: str) -> str:
+            try:
+                import sys
+                import traceback
+                import python_test.mymodule.client as cl
 
-        cl.run()
-        return "abc"
-    """
+                cl.run()
+            except:
+                e = sys.exc_info()[0]
+                return str(traceback.format_exc())
+
+            return "=>OK"
+        """
+    catch e
+         @error "[process_queue] failed:" exception=(e, catch_backtrace())
+    end
 
     x = py"hello_from_module"("Julia")
     @show x

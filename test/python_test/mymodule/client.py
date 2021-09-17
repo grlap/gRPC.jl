@@ -1,5 +1,6 @@
 import grpc
 
+import sys
 import random
 
 from grpc._cython.cygrpc import CompressionAlgorithm, CompressionLevel
@@ -118,5 +119,10 @@ def run_p():
 
 
 if __name__ == '__main__':
-    run()
+    try:
+        run()
+    except:
+        e = sys.exc_info()[0]
+        print(e)
+
     print("Goodbye, World!")
