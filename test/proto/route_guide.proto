@@ -54,6 +54,12 @@ service RouteGuide {
 
   rpc RouteChat(stream RouteNote) returns (stream RouteNote) {}
 
+
+  rpc TerminateServer(Empty) returns (Empty) {}
+}
+
+message Empty 
+{
 }
 
 // Points are represented as latitude-longitude pairs in the E7 representation
