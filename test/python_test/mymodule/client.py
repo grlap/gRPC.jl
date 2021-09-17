@@ -102,6 +102,8 @@ def run():
             0, 0)
         res = stub.RouteEcho(messages)
 
+        res = stub.TerminateServer(route_guide_pb2.Empty())
+
         print("-------------- GetFeature --------------")
         # guide_get_feature(stub)
         # print("-------------- ListFeatures --------------")

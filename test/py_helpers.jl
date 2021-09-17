@@ -12,7 +12,6 @@ end
 """
 function python_client()
     try
-        config_py_path()
         println("[[$(Threads.threadid())]] python_client")
 
         # Calling from gRPC.jl/test.
@@ -40,8 +39,6 @@ function python_client()
 end
 
 function python_server()
-    config_py_path()
-
     # Calling from gRPC.jl/test.
     py"""
     def hello_from_module(name: str) -> str:
@@ -57,3 +54,5 @@ function python_server()
     x = py"hello_from_module"("Julia")
     @show x
 end
+
+config_py_path()
