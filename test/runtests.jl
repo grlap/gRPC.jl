@@ -68,10 +68,29 @@ end
 python_install_requirements()
 
 """
+    Configures PyCall, adds a new Julia process to handle Python cals.
+"""
+function configure_pycall()
+    println("Configure python [aths]")
+    # Create a worker process, where we run python interpreter.
+    addprocs(1)
+
+    # Load python wrappers into the worker processes.
+    @everywhere include("py_helpers.jl")
+    #@everywhere include("test/py_helpers.jl")
+end
+
+# Configure PyCall.
+configure_pycall()
+
+"""
     Handler.
 """
 module RouteGuideTestHander
+using gRPC
 include("proto/proto_jl_out/routeguide.jl")
+
+const GRPC_CONTROLLER = Ref{gRPCController}()
 
 function GetFeature(point::routeguide.Point)
     println("->GetFeature")
@@ -91,22 +110,31 @@ function RouteEcho(route_note::routeguide.RouteNote)
 end
 end
 
-function process(proto_service::ProtoService)
-    println("process $(proto_service)")
+function server_call(socket)
+    println("[[$(Threads.threadid())]] => server_call")
+
+    controller = gRPCController()
+    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
+
+    RouteGuideTestHander.GRPC_CONTROLLER.x = controller
+
+    println("[[$(Threads.threadid())]] => before accept ")
+
+    accepted_socket = accept(socket)
+    println("<= after accept")
+
+    nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
+    println("4")
+
+    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+    println("5")
+
+    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+
+    println("6")
     return nothing
 end
 
-function configure_pycall()
-    println("Configure python [aths]")
-    # Create a worker process, where we run python interpreter.
-    addprocs(1)
-
-    # Load python wrappers into the worker processes.
-    @everywhere include("py_helpers.jl")
-    #@everywhere include("test/py_helpers.jl")
-end
-
-configure_pycall()
 
 function client_call()
     println("connect_1")
@@ -154,29 +182,6 @@ end
 function server_call()
     socket = listen(50200)
     server_call(socket)
-    return nothing
-end
-
-function server_call(socket)
-    println("[[$(Threads.threadid())]] => server_call")
-
-    controller = gRPCController()
-    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
-
-    println("[[$(Threads.threadid())]] => before accept ")
-
-    accepted_socket = accept(socket)
-    println("<= after accept")
-
-    nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
-    println("4")
-
-    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
-    println("5")
-
-    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
-
-    println("6")
     return nothing
 end
 

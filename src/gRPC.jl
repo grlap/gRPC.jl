@@ -24,7 +24,11 @@ end
 """
     gRPCController.
 """
-struct gRPCController <: ProtoRpcController end
+struct gRPCController <: ProtoRpcController 
+    io::IO
+
+
+end
 
 """
     gRPC server implementation
@@ -100,44 +104,8 @@ function Base.iterate(stream::Stream{T}, s=nothing) where {T<:ProtoType}
     return (instance, 1)
 end
 
-function deserialize_object!(io::IO, instance::Stream{T}) where {T<:ProtoType}
-    println("[->] deserialize_stream!")
-
-    results = Stream{T}(io)
-    return results
-
-    #local compressed::Bool
-    #while isopen(io)
-    #        try
-    #compressed = read(io, UInt8)
-    #catch e
-    #if isa(e, EOFError)
-    #   return nothing
-    #else
-    #rethrow()
-    #end
-    #end
-
-    #data_len = ntoh(read(io, UInt32))
-    #println("data_len: $(data_len)")
-    #@show bytesavailable(io)
-
-    #data = read(io, data_len)
-    #@show data
-
-    #instance::T = T()
-    #@show instance
-    #println("before read")
-    #readproto(IOBuffer(data), instance)
-    #println("after read")
-    #@show instance
-
-    #@show io.headers
-    #end
-end
-
 """
-    Deserialize the instance of the proto object from the stream.
+    Deserialize a proto object instance from the io stream.
 """
 function deserialize_object!(io::IO, instance::ProtoType)
     println("[->] deserialize_object!")
@@ -159,9 +127,19 @@ function deserialize_object!(io::IO, instance::ProtoType)
 end
 
 """
-    Serialize the instance of the proto object into the stream.
+    Deserialize a stream of proto objects.
 """
-function serialize_object(instance::ProtoType)
+function deserialize_object!(io::IO, instance::Stream{T}) where {T<:ProtoType}
+    println("[->] deserialize_stream!")
+
+    results = Stream{T}(io)
+    return results
+end
+
+"""
+    Serialize the instance of the proto object into the io buffer.
+"""
+function serialize_object(instance::ProtoType)::IOBuffer
     iob = IOBuffer()
 
     # Compresion.
@@ -241,9 +219,9 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
     headers = [":method" => "POST", ":path" => path, ":authority" => "localhost:5000", ":scheme" => "http", "user-agent" => "grpc-julia", "accept-encoding" => "identity,gzip",
                "content-type" => "application/grpc", "grpc-accept-encoding" => "identity,deflate,gzip", "te" => "trailers"]
 
-    io = gRPC.serialize_object(request)
+    iob = gRPC.serialize_object(request)
 
-    stream1 = submit_request(channel.session, io, headers)
+    stream1 = submit_request(channel.session, iob, headers)
 
     response_type = get_response_type(method)
 
