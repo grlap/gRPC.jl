@@ -7,7 +7,7 @@ using Nghttp2
 using ProtoBuf
 using Sockets
 
-export gRPCChannel, gRPCController
+export gRPCChannel, gRPCController, gRPCServer
 export handle_request, call_method
 
 """
@@ -22,17 +22,20 @@ mutable struct gRPCChannel <: ProtoRpcChannel
 end
 
 """
-    gRPCController.
+    gRPC Server implementation
 """
-struct gRPCController <: ProtoRpcController 
-    io::IO
+mutable struct gRPCServer
+    is_running::Bool
 
-
+    function gRPCServer()
+        return new(true)
+    end
 end
 
 """
-    gRPC server implementation
+    gRPC Controller.
 """
+struct gRPCController <: ProtoRpcController end
 
 #mutable struct gRPCServer
 #    sock::TCPServer
@@ -113,14 +116,18 @@ function deserialize_object!(io::IO, instance::ProtoType)
     data_len = ntoh(read(io, UInt32))
     println("compressed: $(compressed) data_len: $(data_len)")
 
-    if compressed == 1
-        io = GzipDecompressorStream(io)
-    end
+    if data_len != 0
+        io = IOBuffer(read(io, data_len))
 
-    readproto(io, instance)
+        if compressed == 1
+            io = GzipDecompressorStream(io)
+        end
 
-    if compressed == 1
-        finalize(io)
+        readproto(io, instance)
+
+        if compressed == 1
+            finalize(io)
+        end
     end
 
     return instance

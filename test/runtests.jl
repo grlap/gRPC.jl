@@ -86,11 +86,11 @@ configure_pycall()
 """
     Handler.
 """
-module RouteGuideTestHander
+module RouteGuideTestHandler
 using gRPC
 include("proto/proto_jl_out/routeguide.jl")
 
-const GRPC_CONTROLLER = Ref{gRPCController}()
+const GRPC_SERVER = Ref{gRPCServer}()
 
 function GetFeature(point::routeguide.Point)
     println("->GetFeature")
@@ -108,15 +108,25 @@ function RouteEcho(route_note::routeguide.RouteNote)
     res.message = "from_julia"
     return res
 end
+
+function TerminateServer(empty::routeguide.Empty)
+    println("->TerminateServer")
+    GRPC_SERVER.x.is_running = false
+    return routeguide.Empty()
 end
+
+end # module RouteGuideTestHandler
 
 function server_call(socket)
     println("[[$(Threads.threadid())]] => server_call")
 
     controller = gRPCController()
-    route_guide_proto_service::ProtoService = RouteGuideTestHander.routeguide.RouteGuide(RouteGuideTestHander)
 
-    RouteGuideTestHander.GRPC_CONTROLLER.x = controller
+    server = gRPCServer()
+    RouteGuideTestHandler.GRPC_SERVER.x = server
+
+    ## TODO store routes in the server.
+    route_guide_proto_service::ProtoService = RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler)
 
     println("[[$(Threads.threadid())]] => before accept ")
 
@@ -126,10 +136,10 @@ function server_call(socket)
     nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
     println("4")
 
-    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
-    println("5")
-
-    handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+    while server.is_running
+        handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+        println("5")
+    end
 
     println("6")
     return nothing
@@ -149,11 +159,16 @@ function client_call()
     in_point.latitude = 1
     in_point.longitude = 2
 
-    #for n in 1:10
-    result = routeguide.GetFeature(routeGuide, controller, in_point)
-    #end
+    println("client_call-1")
+    for n in 1:10
+        result = routeguide.GetFeature(routeGuide, controller, in_point)
+    end
+
+    println("client_call-2")
 
     _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
+
+    println("client_call-3")
 
     return nothing
 end
@@ -232,9 +247,6 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    # Wait for the server. not needed as we are listening on the socket
-    #wait_for_server(UInt16(50200))
-
     f2 = @spawnat 1 client_call()
 
     fetch(f1)
@@ -259,17 +271,17 @@ function test3()
 end
 
 @testset "Python client - Julia server" begin
-    #test1()
+    test1()
     @test true
 end
 
 @testset "Julia server and client" begin
-    #test2()
+    test2()
     @test true
 end
 
 @testset "Python server - Julia client" begin
-    #test3()
+    test3()
     @test true
 end
 
