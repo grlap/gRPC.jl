@@ -14,7 +14,8 @@ Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 OpenSSL = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+ResumableFunctions = "c5292f4c-5179-55e1-98c5-05642aab7184"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Distributed", "OpenSSL", "PyCall", "Test"]
+test = ["Distributed", "OpenSSL", "PyCall", "ResumableFunctions", "Test"]

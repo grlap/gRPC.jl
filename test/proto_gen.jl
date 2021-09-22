@@ -51,4 +51,3 @@ generate_julia_grpc(proto_dir, jl_out_dir)
 
 # Python codegen
 generate_python_grpc(proto_dir, py_out_dir)
-

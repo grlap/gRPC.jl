@@ -30,7 +30,7 @@ function python_client()
             return "=>OK"
         """
     catch e
-         @error "[process_queue] failed:" exception=(e, catch_backtrace())
+        @error "[process_queue] failed:" exception = (e, catch_backtrace())
     end
 
     x = py"hello_from_module"("Julia")

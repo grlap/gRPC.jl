@@ -22,7 +22,7 @@ mutable struct gRPCChannel <: ProtoRpcChannel
 end
 
 """
-    gRPC Server implementation
+    gRPC Server implementation.
 """
 mutable struct gRPCServer
     is_running::Bool
@@ -31,11 +31,6 @@ mutable struct gRPCServer
         return new(true)
     end
 end
-
-"""
-    gRPC Controller.
-"""
-struct gRPCController <: ProtoRpcController end
 
 #mutable struct gRPCServer
 #    sock::TCPServer
@@ -54,6 +49,11 @@ struct gRPCController <: ProtoRpcController end
 #        new(sock, svcdict, true)
 #    end
 #end
+
+"""
+    gRPC Controller.
+"""
+struct gRPCController <: ProtoRpcController end
 
 # https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
 
@@ -81,13 +81,15 @@ function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
 end
 
 function Base.iterate(stream::Stream{T}, s=nothing) where {T<:ProtoType}
-    if eof(stream.io)
+    io = stream.io
+
+    if eof(io)
         return nothing
     end
 
     local compressed::Bool
     try
-        compressed = read(stream.io, UInt8)
+        compressed = read(io, UInt8)
     catch e
         if isa(e, EOFError)
             return nothing
@@ -96,13 +98,23 @@ function Base.iterate(stream::Stream{T}, s=nothing) where {T<:ProtoType}
         end
     end
 
-    data_len = ntoh(read(stream.io, UInt32))
-    @show bytesavailable(stream.io)
-
-    data = read(stream.io, data_len)
+    data_len = ntoh(read(io, UInt32))
 
     instance::T = T()
-    readproto(IOBuffer(data), instance)
+
+    if data_len != 0
+        io = IOBuffer(read(io, data_len))
+
+        if compressed == 1
+            io = GzipDecompressorStream(io)
+        end
+
+        readproto(io, instance)
+
+        if compressed == 1
+            finalize(io)
+        end
+    end
 
     return (instance, 1)
 end
@@ -114,7 +126,7 @@ function deserialize_object!(io::IO, instance::ProtoType)
     println("[->] deserialize_object!")
     compressed = read(io, UInt8)
     data_len = ntoh(read(io, UInt32))
-    println("compressed: $(compressed) data_len: $(data_len)")
+    println("     deserialize_object compressed: $(compressed) data_len: $(data_len)")
 
     if data_len != 0
         io = IOBuffer(read(io, data_len))
@@ -149,7 +161,7 @@ end
 function serialize_object(instance::ProtoType)::IOBuffer
     iob = IOBuffer()
 
-    # Compresion.
+    # Compression.
     #    write(iob, UInt8(1))
 
     #    iob_proto = IOBuffer()
@@ -176,6 +188,25 @@ function serialize_object(instance::ProtoType)::IOBuffer
 
     #
     seek(iob, 0)
+    return iob
+end
+
+function serialize_object(instances)::IOBuffer
+    iob = IOBuffer()
+
+    # TODO create a new IOStream
+    # As a workaround, serialize all the elements
+    println("[->] serialize_object!!!")
+    for (_, instance) in enumerate(instances)
+        println("[---]")
+        @show typeof(instance)
+        @show instance
+
+        write(iob, serialize_object(instance))
+    end
+
+    seek(iob, 0)
+
     return iob
 end
 

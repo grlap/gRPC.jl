@@ -40,6 +40,7 @@ using gRPC
 using Nghttp2
 using ProtoBuf
 using PyCall
+using ResumableFunctions
 using Sockets
 using Test
 
@@ -88,6 +89,7 @@ configure_pycall()
 """
 module RouteGuideTestHandler
 using gRPC
+using ResumableFunctions
 include("proto/proto_jl_out/routeguide.jl")
 
 const GRPC_SERVER = Ref{gRPCServer}()
@@ -99,6 +101,27 @@ function GetFeature(point::routeguide.Point)
     feature.name = "from_julia"
     feature.location = point
     return feature
+end
+
+@resumable function ListFeatures(rect::routeguide.Rectangle)
+    println("ListFeatures")
+    feature = routeguide.Feature()
+    feature.name = "from_julia"
+    @yield feature
+
+    println("ListFeatures")
+    feature = routeguide.Feature()
+    feature.name = "from_julia"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "from_julia_1"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "from_julia_2"
+    @yield feature
+    return nothing
 end
 
 function RouteEcho(route_note::routeguide.RouteNote)
@@ -145,30 +168,36 @@ function server_call(socket)
     return nothing
 end
 
-
 function client_call()
     println("connect_1")
     controller = gRPCController()
     tcp_connection = connect(50200)
-    @show tcp_connection
     grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
+    # Get feature.
+    println("client_call-1")
     in_point = routeguide.Point()
     in_point.latitude = 1
     in_point.longitude = 2
 
-    println("client_call-1")
     for n in 1:10
         result = routeguide.GetFeature(routeGuide, controller, in_point)
     end
 
-    println("client_call-2")
+    # List features.
+    in_rect = routeguide.Rectangle()
 
+    list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
+    for feature in list_features
+        println("===[]===")
+        @show typeof(feature)
+        @show feature
+    end
+
+    # Terminate the server.
     _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
-
-    println("client_call-3")
 
     return nothing
 end
@@ -184,10 +213,11 @@ function client_call_2()
 
     in_rect = routeguide.Rectangle()
 
-    #for n in 1:10
     result = routeguide.ListFeatures(routeGuide, controller, in_rect)
-    @show result
-    #end
+    for el in result
+        println("===[]===")
+        @show el
+    end
 
     _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
 
@@ -218,13 +248,6 @@ end
     Use python client.
 """
 function test1()
-    # Create a worker process, where we run python interpreter.
-    #addprocs(1)
-
-    # Load python wrappers into the worker processes.
-    #@everywhere include("py_helpers.jl")
-    #@everywhere include("test/py_helpers.jl")
-
     socket = listen(50200)
 
     f2 = @spawnat 2 python_client()
@@ -240,9 +263,7 @@ function test1()
 end
 
 function test2()
-    println("listen:")
     socket = listen(50200)
-    println("_listen:")
 
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
@@ -267,7 +288,6 @@ function test3()
     fetch(f2)
 
     return nothing
-
 end
 
 @testset "Python client - Julia server" begin
