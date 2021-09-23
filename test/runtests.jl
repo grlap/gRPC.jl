@@ -95,8 +95,7 @@ include("proto/proto_jl_out/routeguide.jl")
 const GRPC_SERVER = Ref{gRPCServer}()
 
 function GetFeature(point::routeguide.Point)
-    println("->GetFeature")
-    @show point
+    println("[]Server->GetFeature")
     feature = routeguide.Feature()
     feature.name = "from_julia"
     feature.location = point
@@ -104,12 +103,11 @@ function GetFeature(point::routeguide.Point)
 end
 
 @resumable function ListFeatures(rect::routeguide.Rectangle)
-    println("ListFeatures")
+    println("[]Server->ListFeatures")
     feature = routeguide.Feature()
     feature.name = "from_julia"
     @yield feature
 
-    println("ListFeatures")
     feature = routeguide.Feature()
     feature.name = "from_julia"
     @yield feature
@@ -121,7 +119,6 @@ end
     feature = routeguide.Feature()
     feature.name = "from_julia_2"
     @yield feature
-    return nothing
 end
 
 function RouteEcho(route_note::routeguide.RouteNote)
@@ -177,7 +174,7 @@ function client_call()
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
     # Get feature.
-    println("client_call-1")
+    println("=> client_call.GetFeature")
     in_point = routeguide.Point()
     in_point.latitude = 1
     in_point.longitude = 2
@@ -187,38 +184,16 @@ function client_call()
     end
 
     # List features.
+    println("=> client_call.ListFeatures")
     in_rect = routeguide.Rectangle()
 
     list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
     for feature in list_features
-        println("===[]===")
-        @show typeof(feature)
-        @show feature
+        println("feature.name: $(feature.name)")
     end
 
     # Terminate the server.
-    _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
-
-    return nothing
-end
-
-function client_call_2()
-    println("connect_2")
-    controller = gRPCController()
-    tcp_connection = connect(50200)
-    @show tcp_connection
-    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
-
-    routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
-
-    in_rect = routeguide.Rectangle()
-
-    result = routeguide.ListFeatures(routeGuide, controller, in_rect)
-    for el in result
-        println("===[]===")
-        @show el
-    end
-
+    println("=> client_call.TerminateServer")
     _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
 
     return nothing

@@ -64,6 +64,90 @@ const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/g
 const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
+mutable struct SendingStream <: IO
+    itr::Base.Iterators.Enumerate
+    next::Any
+    buffer::IOBuffer
+    eof::Bool
+
+    function SendingStream(itr)
+        return new(itr, iterate(itr), IOBuffer(), false)
+    end
+end
+
+function internal_read!(sending_stream::SendingStream)::Bool
+    println("internal_read! SendingStream")
+
+    if sending_stream.eof
+        # No more elements available.
+        return false
+    end
+
+    itr = sending_stream.itr
+    next = iterate(itr)
+
+    @show typeof(itr)
+    @show typeof(next)
+
+    while !isnothing(next)
+        println("[===>] next element")
+        (i, state) = next
+        (index, element) = i
+        @show typeof(element)
+        @show element
+
+        # Write to the buffer.
+        iob = serialize_object(element)
+        seekend(sending_stream.buffer)
+        write(sending_stream.buffer, iob)
+        seek(sending_stream.buffer, 0)
+
+        # body
+        next = iterate(itr, state)
+    end
+
+    sending_stream.eof = true
+
+    return true
+end
+
+function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
+    println("ensure_in_buffer SendingStream")
+
+    should_read = true
+
+    # TODO comment
+    # Process the enumeration until there is no more available data in HTTP2 stream.
+    while should_read
+        if bytesavailable(sending_stream.buffer) >= nb || sending_stream.eof
+            should_read = false
+        end
+
+        if should_read && internal_read!(sending_stream)
+            continue
+        end
+
+        # Read failed
+        break
+    end
+end
+
+function Base.eof(sending_stream::SendingStream)::Bool
+    println("[--->] Base.eof SendingStream")
+
+    return sending_stream.eof && eof(sending_stream.buffer)
+end
+
+function Base.read(sending_stream::SendingStream, nb::Integer)::Vector{UInt8}
+    println("Base.read sending_stream $nb")
+
+    ensure_in_buffer(sending_stream, nb)
+
+    vec = read(sending_stream.buffer, nb)
+
+    return vec
+end
+
 struct Stream{T}
     io::IO
 
@@ -123,21 +207,19 @@ end
     Deserialize a proto object instance from the io stream.
 """
 function deserialize_object!(io::IO, instance::ProtoType)
-    println("[->] deserialize_object!")
-    compressed = read(io, UInt8)
+    is_compressed = read(io, UInt8)
     data_len = ntoh(read(io, UInt32))
-    println("     deserialize_object compressed: $(compressed) data_len: $(data_len)")
 
     if data_len != 0
         io = IOBuffer(read(io, data_len))
 
-        if compressed == 1
+        if is_compressed == 1
             io = GzipDecompressorStream(io)
         end
 
         readproto(io, instance)
 
-        if compressed == 1
+        if is_compressed == 1
             finalize(io)
         end
     end
@@ -149,8 +231,6 @@ end
     Deserialize a stream of proto objects.
 """
 function deserialize_object!(io::IO, instance::Stream{T}) where {T<:ProtoType}
-    println("[->] deserialize_stream!")
-
     results = Stream{T}(io)
     return results
 end
@@ -158,7 +238,7 @@ end
 """
     Serialize the instance of the proto object into the io buffer.
 """
-function serialize_object(instance::ProtoType)::IOBuffer
+function serialize_object(instance::ProtoType)::IO
     iob = IOBuffer()
 
     # Compression.
@@ -191,33 +271,28 @@ function serialize_object(instance::ProtoType)::IOBuffer
     return iob
 end
 
-function serialize_object(instances)::IOBuffer
-    iob = IOBuffer()
+function serialize_object(instances)::IO
+    println("[->] serialize_object stream!!!")
+    send_stream=SendingStream(enumerate(instances))
+    return send_stream
 
+    #iob = IOBuffer()
     # TODO create a new IOStream
     # As a workaround, serialize all the elements
-    println("[->] serialize_object!!!")
-    for (_, instance) in enumerate(instances)
-        println("[---]")
-        @show typeof(instance)
-        @show instance
-
-        write(iob, serialize_object(instance))
-    end
-
-    seek(iob, 0)
-
-    return iob
+    #println("[->] serialize_object!!!")
+    #for (_, instance) in enumerate(instances)
+    #    println("[---]")
+    #    write(iob, serialize_object(instance))
+    #end
+    #seek(iob, 0)
+    #return iob
 end
 
 """
     Process server request.
 """
 function handle_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
-    println("[->] handle_request!")
-
     request_stream::Http2Stream = recv(http2_server_session)
-    @show request_stream.headers
 
     headers = request_stream.headers
     method = headers[":method"]
@@ -232,20 +307,17 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     sevice_name, method_name = path_components
 
     method = find_method(proto_service, method_name)
-    @show sevice_name, method
 
     request_type = get_request_type(proto_service, method)
-    @show request_type
+
     request_argument = request_type()
 
     deserialize_object!(request_stream, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
-    println("Prepare for response")
 
     io = serialize_object(response)
 
-    println("-> submit_response")
     return submit_response(request_stream, io, gRPC.DEFAULT_STATUS_200, gRPC.DEFAULT_TRAILER)
 end
 
@@ -259,15 +331,13 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
 
     iob = gRPC.serialize_object(request)
 
-    stream1 = submit_request(channel.session, iob, headers)
+    response_stream = submit_request(channel.session, iob, headers)
 
     response_type = get_response_type(method)
 
     response = response_type()
 
-    @show response_type
-
-    instance = deserialize_object!(stream1, response)
+    instance = deserialize_object!(response_stream, response)
 
     return instance
 end
