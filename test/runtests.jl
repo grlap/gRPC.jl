@@ -129,8 +129,9 @@ function RouteEcho(route_note::routeguide.RouteNote)
     return res
 end
 
-#TODO wrong
 @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
+    println("[]->RouteChat")
+    @show routes
     for route in routes
         println("route: $(route)")
         @yield route

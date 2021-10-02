@@ -312,7 +312,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     request_type = get_request_type(proto_service, method)
 
     request_argument = request_type()
-    deserialize_object!(request_stream, request_argument)
+    request_argument = deserialize_object!(request_stream, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)
 
