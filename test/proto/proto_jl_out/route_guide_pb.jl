@@ -1,5 +1,6 @@
 # syntax: proto3
 using ProtoBuf
+using gRPC
 import ProtoBuf.meta
 
 mutable struct Empty <: ProtoType
@@ -257,11 +258,15 @@ function Base.getproperty(obj::RouteSummary, name::Symbol)
 end
 
 # service methods for RouteGuide
-const _RouteGuide_methods = MethodDescriptor[MethodDescriptor("GetFeature", 1, Point, Feature), MethodDescriptor("ListFeatures", 2, Rectangle, Base.Iterators.Enumerate{Feature}),
-                                             MethodDescriptor("RecordRoute", 3, Base.Iterators.Enumerate{Point}, RouteSummary),
-                                             MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
-                                             MethodDescriptor("RouteChat", 5, Base.Iterators.Enumerate{RouteNote}, Base.Iterators.Enumerate{RouteNote}),
-                                             MethodDescriptor("TerminateServer", 6, Empty, Empty)] # const _RouteGuide_methods
+const _RouteGuide_methods = MethodDescriptor[
+    MethodDescriptor("GetFeature", 1, Point, Feature), 
+    MethodDescriptor("ListFeatures", 2, Rectangle, Base.Iterators.Enumerate{Feature}),
+    MethodDescriptor("RecordRoute", 3, ReceivingStream{Point}, RouteSummary),
+    MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
+    MethodDescriptor("RouteChat", 5, ReceivingStream{RouteNote}, Base.Iterators.Enumerate{RouteNote}),
+    MethodDescriptor("TerminateServer", 6, Empty, Empty)
+] # const _RouteGuide_methods
+
 const _RouteGuide_desc = ServiceDescriptor("routeguide.RouteGuide", 1, _RouteGuide_methods)
 
 RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)

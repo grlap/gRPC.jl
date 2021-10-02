@@ -8,6 +8,7 @@ using ProtoBuf
 using Sockets
 
 export gRPCChannel, gRPCController, gRPCServer
+export SendingStream, ReceivingStream
 export handle_request, call_method
 
 """
@@ -148,23 +149,23 @@ function Base.read(sending_stream::SendingStream, nb::Integer)::Vector{UInt8}
     return vec
 end
 
-struct Stream{T}
+struct ReceivingStream{T}
     io::IO
 
-    function Stream{T}() where {T<:ProtoType}
+    function ReceivingStream{T}() where {T<:ProtoType}
         return new(devnull)
     end
 
-    function Stream{T}(io::IO) where {T<:ProtoType}
+    function ReceivingStream{T}(io::IO) where {T<:ProtoType}
         return new(io)
     end
 end
 
 function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
-    return Stream{T}()
+    return ReceivingStream{T}()
 end
 
-function Base.iterate(stream::Stream{T}, s=nothing) where {T<:ProtoType}
+function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType}
     io = stream.io
 
     if eof(io)
@@ -230,8 +231,8 @@ end
 """
     Deserialize a stream of proto objects.
 """
-function deserialize_object!(io::IO, instance::Stream{T}) where {T<:ProtoType}
-    results = Stream{T}(io)
+function deserialize_object!(io::IO, instance::ReceivingStream{T}) where {T<:ProtoType}
+    results = ReceivingStream{T}(io)
     return results
 end
 
@@ -311,7 +312,6 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     request_type = get_request_type(proto_service, method)
 
     request_argument = request_type()
-
     deserialize_object!(request_stream, request_argument)
 
     response = call_method(proto_service, method, controller, request_argument)

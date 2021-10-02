@@ -129,6 +129,14 @@ function RouteEcho(route_note::routeguide.RouteNote)
     return res
 end
 
+#TODO wrong
+@resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
+    for route in routes
+        println("route: $(route)")
+        @yield route
+    end
+end
+
 function TerminateServer(empty::routeguide.Empty)
     println("->TerminateServer")
     GRPC_SERVER.x.is_running = false
