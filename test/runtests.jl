@@ -130,10 +130,9 @@ function RouteEcho(route_note::routeguide.RouteNote)
 end
 
 @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
-    println("[]->RouteChat")
-    @show routes
+    println("[Server::RouteChat]")
     for route in routes
-        println("route: $(route)")
+        println("[Server::RouteChat] receving and sending route: $(route)")
         @yield route
     end
 end
@@ -145,6 +144,21 @@ function TerminateServer(empty::routeguide.Empty)
 end
 
 end # module RouteGuideTestHandler
+
+
+@resumable function ListRouteNotes()
+    route_node = routeguide.RouteNote()
+    route_node.message = "Julia Client 1"
+    @yield route_node
+
+    route_node = routeguide.RouteNote()
+    route_node.message = "Julia Client 2"
+    @yield route_node
+
+    route_node = routeguide.RouteNote()
+    route_node.message = "Julia Client 3"
+    @yield route_node
+end
 
 function server_call(socket)
     println("[[$(Threads.threadid())]] => server_call")
@@ -181,6 +195,19 @@ function client_call()
     grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
+
+    # Route notes.
+    route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
+    println("Route notes")
+    @show typeof(route_nodes)
+    @show route_nodes
+
+    for route_node in route_nodes
+        println("[==>] client:")
+        @show "client:", route_node
+    end
+
+    println("-> route notes.")
 
     # Get feature.
     println("=> client_call.GetFeature")

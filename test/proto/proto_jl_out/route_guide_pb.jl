@@ -1,6 +1,5 @@
 # syntax: proto3
 using ProtoBuf
-using gRPC
 import ProtoBuf.meta
 
 mutable struct Empty <: ProtoType
@@ -260,10 +259,10 @@ end
 # service methods for RouteGuide
 const _RouteGuide_methods = MethodDescriptor[
     MethodDescriptor("GetFeature", 1, Point, Feature), 
-    MethodDescriptor("ListFeatures", 2, Rectangle, Base.Iterators.Enumerate{Feature}),
-    MethodDescriptor("RecordRoute", 3, ReceivingStream{Point}, RouteSummary),
+    MethodDescriptor("ListFeatures", 2, Rectangle, AbstractChannel{Feature}),
+    MethodDescriptor("RecordRoute", 3, AbstractChannel{Point}, RouteSummary),
     MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
-    MethodDescriptor("RouteChat", 5, ReceivingStream{RouteNote}, Base.Iterators.Enumerate{RouteNote}),
+    MethodDescriptor("RouteChat", 5, AbstractChannel{RouteNote}, AbstractChannel{RouteNote}),
     MethodDescriptor("TerminateServer", 6, Empty, Empty)
 ] # const _RouteGuide_methods
 
@@ -294,9 +293,9 @@ RecordRoute(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::B
 RouteEcho(stub::RouteGuideStub, controller::ProtoRpcController, inp::RouteNote, done::Function) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp, done)
 RouteEcho(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::RouteNote) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp)
 
-RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp::Base.Iterators.Enumerate{RouteNote}, done::Function) = call_method(stub.impl, _RouteGuide_methods[5],
+RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[5],
                                                                                                                                         controller, inp, done)
-RouteChat(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::Base.Iterators.Enumerate{RouteNote}) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp)
+RouteChat(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp)
 
 TerminateServer(stub::RouteGuideStub, controller::ProtoRpcController, inp::Empty, done::Function) = call_method(stub.impl, _RouteGuide_methods[6], controller, inp, done)
 TerminateServer(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::Empty) = call_method(stub.impl, _RouteGuide_methods[6], controller, inp)
