@@ -145,7 +145,6 @@ end
 
 end # module RouteGuideTestHandler
 
-
 @resumable function ListRouteNotes()
     route_node = routeguide.RouteNote()
     route_node.message = "Julia Client 1"
@@ -196,16 +195,15 @@ function client_call()
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
-    # Route notes.
+    # RouteChat.
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
-    println("Route notes")
-    @show typeof(route_nodes)
-    @show route_nodes
-
+    received_count::Int = 0
     for route_node in route_nodes
         println("[==>] client:")
         @show "client:", route_node
+        received_count = received_count + 1
     end
+    @test received_count == length(collect(ListRouteNotes()))
 
     println("-> route notes.")
 
@@ -263,10 +261,9 @@ function test1()
 
     f2 = @spawnat 2 python_client()
 
-    f1 = @async server_call(socket)
+    server_call(socket)
 
     fetch(f2)
-    fetch(f1)
 
     close(socket)
 
@@ -279,10 +276,9 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    f2 = @spawnat 1 client_call()
+    client_call()
 
     fetch(f1)
-    fetch(f2)
 
     close(socket)
     return nothing
@@ -293,9 +289,8 @@ function test3()
 
     wait_for_server(UInt16(50200))
 
-    f1 = @spawnat 1 client_call()
+    client_call()
 
-    fetch(f1)
     fetch(f2)
 
     return nothing

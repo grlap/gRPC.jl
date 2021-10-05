@@ -17,9 +17,7 @@ export handle_request, call_method
 mutable struct gRPCChannel <: ProtoRpcChannel
     session::Http2ClientSession
 
-    function gRPCChannel(session::Http2ClientSession)
-        return new(session)
-    end
+    gRPCChannel(session::Http2ClientSession) = new(session)
 end
 
 """
@@ -28,9 +26,7 @@ end
 mutable struct gRPCServer
     is_running::Bool
 
-    function gRPCServer()
-        return new(true)
-    end
+    gRPCServer() = new(true)
 end
 
 #mutable struct gRPCServer
@@ -71,31 +67,18 @@ mutable struct SendingStream <: IO
     buffer::IOBuffer
     eof::Bool
 
-    function SendingStream(itr)
-        return new(itr, iterate(itr), IOBuffer(), false)
-    end
+    SendingStream(itr) = new(itr, iterate(itr), IOBuffer(), false)
 end
 
-function internal_read!(sending_stream::SendingStream)::Bool
-    println("[SendingStream]::internal_read!")
-
+function internal_read(sending_stream::SendingStream)::Bool
     if sending_stream.eof
         # No more elements available.
         return false
     end
 
-    itr = sending_stream.itr
-    next = sending_stream.next
-
-    println("[SendingStream]::internal_read -> Start")
-
-    while !isnothing(next)
-        println("[===>] next element")
-        (i, state) = next
+    if !isnothing(sending_stream.next)
+        (i, state) = sending_stream.next
         (index, element) = i
-        @show index
-        @show typeof(element)
-        @show element
 
         # Write to the buffer.
         iob = serialize_object(element)
@@ -103,18 +86,16 @@ function internal_read!(sending_stream::SendingStream)::Bool
         write(sending_stream.buffer, iob)
         seek(sending_stream.buffer, 0)
 
-        # body
-        next = iterate(itr, state)
+        # Get the next element from the iterator.
+        sending_stream.next = iterate(sending_stream.itr, state)
+    else
+        sending_stream.eof = true
     end
 
-    sending_stream.eof = true
-
-    return true
+    return !sending_stream.eof
 end
 
 function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
-    println("ensure_in_buffer SendingStream")
-
     should_read = true
 
     # TODO comment
@@ -124,7 +105,7 @@ function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
             should_read = false
         end
 
-        if should_read && internal_read!(sending_stream)
+        if should_read && internal_read(sending_stream)
             continue
         end
 
@@ -133,20 +114,12 @@ function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
     end
 end
 
-function Base.eof(sending_stream::SendingStream)::Bool
-    println("[--->] Base.eof SendingStream")
-
-    return sending_stream.eof && eof(sending_stream.buffer)
-end
+Base.eof(sending_stream::SendingStream)::Bool = sending_stream.eof && eof(sending_stream.buffer)
 
 function Base.read(sending_stream::SendingStream, nb::Integer)::Vector{UInt8}
-    println("Base.read sending_stream $nb")
-
     ensure_in_buffer(sending_stream, nb)
 
-    vec = read(sending_stream.buffer, nb)
-
-    return vec
+    return read(sending_stream.buffer, nb)
 end
 
 struct ReceivingStream{T} <: AbstractChannel{T}
@@ -166,7 +139,6 @@ function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
 end
 
 function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType}
-    println("iterate ReceivingStream")
     io = stream.io
 
     if eof(io)
@@ -208,7 +180,7 @@ end
 """
     Deserialize a proto object instance from the io stream.
 """
-function deserialize_object!(io::IO, instance_type::Type{T}) where {T<:ProtoType}
+function deserialize_object(io::IO, instance_type::Type{T}) where {T<:ProtoType}
     instance = instance_type()
     is_compressed = read(io, UInt8)
     data_len = ntoh(read(io, UInt32))
@@ -231,9 +203,9 @@ function deserialize_object!(io::IO, instance_type::Type{T}) where {T<:ProtoType
 end
 
 """
-    Deserialize a stream of proto objects.
+    Deserialize a stream of proto objects from the io stream.
 """
-function deserialize_object!(io::IO, ::Type{AbstractChannel{T}}) where {T<:ProtoType}
+function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T<:ProtoType}
     results = ReceivingStream{T}(io)
     return results
 end
@@ -275,7 +247,6 @@ function serialize_object(instance::ProtoType)::IO
 end
 
 function serialize_object(instances)::IO
-    println("[->] serialize_object stream!!!")
     send_stream = SendingStream(enumerate(instances))
     return send_stream
 
@@ -313,7 +284,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     request_type = get_request_type(proto_service, method)
 
-    request_argument = deserialize_object!(request_stream, request_type)
+    request_argument = deserialize_object(request_stream, request_type)
 
     response = call_method(proto_service, method, controller, request_argument)
 
@@ -336,7 +307,7 @@ function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, metho
 
     response_type = get_response_type(method)
 
-    instance = deserialize_object!(response_stream, response_type)
+    instance = deserialize_object(response_stream, response_type)
 
     return instance
 end

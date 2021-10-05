@@ -257,14 +257,10 @@ function Base.getproperty(obj::RouteSummary, name::Symbol)
 end
 
 # service methods for RouteGuide
-const _RouteGuide_methods = MethodDescriptor[
-    MethodDescriptor("GetFeature", 1, Point, Feature), 
-    MethodDescriptor("ListFeatures", 2, Rectangle, AbstractChannel{Feature}),
-    MethodDescriptor("RecordRoute", 3, AbstractChannel{Point}, RouteSummary),
-    MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
-    MethodDescriptor("RouteChat", 5, AbstractChannel{RouteNote}, AbstractChannel{RouteNote}),
-    MethodDescriptor("TerminateServer", 6, Empty, Empty)
-] # const _RouteGuide_methods
+const _RouteGuide_methods = MethodDescriptor[MethodDescriptor("GetFeature", 1, Point, Feature), MethodDescriptor("ListFeatures", 2, Rectangle, AbstractChannel{Feature}),
+                                             MethodDescriptor("RecordRoute", 3, AbstractChannel{Point}, RouteSummary), MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
+                                             MethodDescriptor("RouteChat", 5, AbstractChannel{RouteNote}, AbstractChannel{RouteNote}),
+                                             MethodDescriptor("TerminateServer", 6, Empty, Empty)] # const _RouteGuide_methods
 
 const _RouteGuide_desc = ServiceDescriptor("routeguide.RouteGuide", 1, _RouteGuide_methods)
 
@@ -293,8 +289,7 @@ RecordRoute(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::B
 RouteEcho(stub::RouteGuideStub, controller::ProtoRpcController, inp::RouteNote, done::Function) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp, done)
 RouteEcho(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp::RouteNote) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp)
 
-RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[5],
-                                                                                                                                        controller, inp, done)
+RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp, done)
 RouteChat(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp)
 
 TerminateServer(stub::RouteGuideStub, controller::ProtoRpcController, inp::Empty, done::Function) = call_method(stub.impl, _RouteGuide_methods[6], controller, inp, done)
