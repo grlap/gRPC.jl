@@ -25,8 +25,9 @@ end
 """
 mutable struct gRPCServer
     is_running::Bool
+    services::Dict{String,ProtoService}
 
-    gRPCServer() = new(true)
+    gRPCServer() = new(true, Dict{String,ProtoService}())
 end
 
 #mutable struct gRPCServer
