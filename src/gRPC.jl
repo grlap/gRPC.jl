@@ -78,7 +78,7 @@ function internal_read(sending_stream::SendingStream)::Bool
 
     if !isnothing(sending_stream.next)
         (i, state) = sending_stream.next
-        (index, element) = i
+        (_, element) = i
 
         # Write to the buffer.
         iob = serialize_object(element)

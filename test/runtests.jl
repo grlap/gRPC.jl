@@ -86,6 +86,7 @@ configure_pycall()
 
 """
     Handler.
+    gRPC test server implementation.
 """
 module RouteGuideTestHandler
 using gRPC
@@ -95,7 +96,8 @@ include("proto/proto_jl_out/routeguide.jl")
 const GRPC_SERVER = Ref{gRPCServer}()
 
 function GetFeature(point::routeguide.Point)
-    println("[]Server->GetFeature")
+    println("[Server]->GetFeature")
+
     feature = routeguide.Feature()
     feature.name = "from_julia"
     feature.location = point
@@ -103,42 +105,44 @@ function GetFeature(point::routeguide.Point)
 end
 
 @resumable function ListFeatures(rect::routeguide.Rectangle)
-    println("[]Server->ListFeatures")
+    println("[Server]->ListFeatures")
+
     feature = routeguide.Feature()
-    feature.name = "from_julia"
+    feature.name = "enumerate_from_julia_1"
     @yield feature
 
     feature = routeguide.Feature()
-    feature.name = "from_julia"
+    feature.name = "enumerate_from_julia_2"
     @yield feature
 
     feature = routeguide.Feature()
-    feature.name = "from_julia_1"
+    feature.name = "enumerate_from_julia_3"
     @yield feature
 
     feature = routeguide.Feature()
-    feature.name = "from_julia_2"
+    feature.name = "enumerate_from_julia_4"
     @yield feature
 end
 
 function RouteEcho(route_note::routeguide.RouteNote)
-    println("->RouteEcho")
-    @show route_note
+    println("[Server]->RouteEcho")
+
     res = routeguide.RouteNote()
     res.message = "from_julia"
     return res
 end
 
 @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
-    println("[Server::RouteChat]")
+    println("[Server]->RouteChat")
+
     for route in routes
-        println("[Server::RouteChat] receving and sending route: $(route)")
+        println("[Server]::RouteChat receving and sending route")
         @yield route
     end
 end
 
 function TerminateServer(empty::routeguide.Empty)
-    println("->TerminateServer")
+    println("[Server]->TerminateServer")
     GRPC_SERVER.x.is_running = false
     return routeguide.Empty()
 end
@@ -160,7 +164,7 @@ end # module RouteGuideTestHandler
 end
 
 function server_call(socket)
-    println("[[$(Threads.threadid())]] => server_call")
+    println("[server_call]::[$(Threads.threadid())]")
 
     controller = gRPCController()
 
@@ -170,20 +174,14 @@ function server_call(socket)
     ## TODO store routes in the server.
     route_guide_proto_service::ProtoService = RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler)
 
-    println("[[$(Threads.threadid())]] => before accept ")
-
     accepted_socket = accept(socket)
-    println("<= after accept")
 
     nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
-    println("4")
 
     while server.is_running
         handle_request(nghttp2_server_session, controller, route_guide_proto_service)
-        println("5")
     end
 
-    println("6")
     return nothing
 end
 
@@ -199,8 +197,6 @@ function client_call()
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
     received_count::Int = 0
     for route_node in route_nodes
-        println("[==>] client:")
-        @show "client:", route_node
         received_count = received_count + 1
     end
     @test received_count == length(collect(ListRouteNotes()))
