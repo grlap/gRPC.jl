@@ -168,18 +168,15 @@ function server_call(socket)
 
     controller = gRPCController()
 
-    server = gRPCServer()
+    server = gRPCServer(Dict("routeguide.RouteGuide" => RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler)))
     RouteGuideTestHandler.GRPC_SERVER.x = server
-
-    ## TODO store routes in the server.
-    route_guide_proto_service::ProtoService = RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler)
 
     accepted_socket = accept(socket)
 
     nghttp2_server_session = Nghttp2.from_accepted(accepted_socket)
 
     while server.is_running
-        handle_request(nghttp2_server_session, controller, route_guide_proto_service)
+        handle_request(nghttp2_server_session, controller, server)
     end
 
     return nothing

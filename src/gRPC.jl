@@ -24,29 +24,11 @@ end
     gRPC Server implementation.
 """
 mutable struct gRPCServer
+    proto_services::Dict{String,ProtoService}
     is_running::Bool
-    services::Dict{String,ProtoService}
 
-    gRPCServer() = new(true, Dict{String,ProtoService}())
+    gRPCServer(routes::Dict{String,ProtoService}) = new(routes, true)
 end
-
-#mutable struct gRPCServer
-#    sock::TCPServer
-#    services::Dict{String, ProtoService}
-#    run::Bool
-
-#    gRPCServer(services::Tuple{ProtoService}, ip::IPv4, port::Integer) =
-#        gRPCServer(services, listen(ip, port))
-#    gRPCServer(services::Tuple{ProtoService}, port::Integer) =
-#        gRPCServer(services, listen(port))
-#    function gRPCServer(services::Tuple{ProtoService}, sock::TCPServer)
-#        svcdict = Dict{String,ProtoService}()
-#        for svc in services
-#            svcdict[svc.desc.name] = svc
-#        end
-#        new(sock, svcdict, true)
-#    end
-#end
 
 """
     gRPC Controller.
@@ -266,7 +248,7 @@ end
 """
     Process server request.
 """
-function handle_request(http2_server_session::Http2ServerSession, controller::gRPCController, proto_service::ProtoService)
+function handle_request(http2_server_session::Http2ServerSession, controller::gRPCController, server::gRPCServer)
     request_stream::Http2Stream = recv(http2_server_session)
 
     headers = request_stream.headers
@@ -279,7 +261,9 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
         return nothing
     end
 
-    sevice_name, method_name = path_components
+    service_name, method_name = path_components
+
+    proto_service::ProtoService = server.proto_services[service_name]
 
     method = find_method(proto_service, method_name)
 
