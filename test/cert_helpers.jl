@@ -2,6 +2,7 @@ using Dates
 using OpenSSL
 
 """
+function create_self_signed_certificate2()
 # Create a root certificate.
 x509_certificate = X509Certificate()
 
@@ -73,12 +74,29 @@ adjust(x509_certificate.time_not_after, Year(1))
 
 sign_certificate(x509_certificate, evp_pkey_ca)
 
+##sign_certificate
+#p12_object = P12Object(evp_pkey, root_certificate)
+
+#return p12_object
+
+private_key_io = IOBuffer()
+write(private_key_io, evp_pkey)
+
+public_key_io = IOBuffer()
+write(public_key_io, root_certificate)
+
+private_key_pem = String(take!(private_key_io))
+public_key_pem = String(take!(public_key_io))
+
+return private_key_pem, public_key_pem
+
+end
 """
 
 """
     Creates a self signed certificate.
 """
-function create_self_signed_certificate()::P12Object
+function create_self_signed_certificate()
     x509_certificate = X509Certificate()
 
     evp_pkey = EvpPKey(rsa_generate_key())
@@ -100,7 +118,14 @@ function create_self_signed_certificate()::P12Object
 
     sign_certificate(x509_certificate, evp_pkey)
 
-    p12_object = P12Object(evp_pkey, x509_certificate)
-
-    return p12_object
-end
+    private_key_io = IOBuffer()
+    write(private_key_io, evp_pkey)
+    
+    public_key_io = IOBuffer()
+    write(public_key_io, x509_certificate)
+    
+    private_key_pem = String(take!(private_key_io))
+    public_key_pem = String(take!(public_key_io))
+    
+    return private_key_pem, public_key_pem
+    end

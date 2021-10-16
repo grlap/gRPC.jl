@@ -63,29 +63,12 @@ function python_install_requirements()
     #pip_os.main(["uninstall", "grpcio-tools", "-y"])
     #pip_os.main(["uninstall", "grpcio", "-y"])
     pip_os.main(["install", "protobuf==3.15.8"])
-    pip_os.main(["install", "grpcio"])
-    pip_os.main(["install", "grpcio-tools"])
+    pip_os.main(["install", "grpcio==1.38.1"])
+    pip_os.main(["install", "grpcio-tools==1.38.1"])
     return nothing
 end
 
-# Create self-signed certificate.
-function get_certificate_pem()
-    p12_cert = create_self_signed_certificate()
-    evp_key, x509, _ = unpack(p12_cert)
-
-    private_key_io = IOBuffer()
-    write(private_key_io, evp_key)
-
-    public_key_io = IOBuffer()
-    write(public_key_io, x509)
-
-    private_key_pem = String(take!(private_key_io))
-    public_key_pem = String(take!(public_key_io))
-
-    return private_key_pem, public_key_pem
-end
-
-private_key_pem, public_key_pem = get_certificate_pem()
+private_key_pem, public_key_pem = create_self_signed_certificate()
 
 # Install gRPC modules
 python_install_requirements()
@@ -315,16 +298,13 @@ function test2()
 end
 
 function test3()
-    @show private_key_pem
-    @show public_key_pem
-    python_server(private_key_pem, public_key_pem)
-    #f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    #wait_for_server(UInt16(50200))
+    wait_for_server(UInt16(50200))
 
-    #client_call()
+    client_call()
 
-    #fetch(f2)
+    fetch(f2)
 
     return nothing
 end
