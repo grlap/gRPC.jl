@@ -7,6 +7,14 @@ function config_py_path()
     return pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
 end
 
+pybytes(bytes) = PyObject(
+    ccall(
+        PyCall.@pysym(PyCall.PyString_FromStringAndSize),
+        PyPtr,
+        (Ptr{UInt8}, Int),
+        bytes,
+        sizeof(bytes)))
+
 """
     Calling into python.
 """
@@ -38,20 +46,24 @@ function python_client()
     return x
 end
 
-function python_server()
+function python_server(private_key_pem, public_key_pem)
+    # Create python objects.
+    private_key_py = pybytes(private_key_pem)
+    public_key_py = pybytes(public_key_pem)
+
     # Calling from gRPC.jl/test.
     py"""
-    def hello_from_module(name: str) -> str:
+    def hello_from_module(name: str, private_key_py, public_key_py) -> str:
         import python_test.mymodule.mymodule as mm
 
         import python_test.mymodule.server as server
-        server.serve()
+        server.serve(private_key_py, public_key_py)
 
         # mm.hello_world(name)
         return "abc"
     """
 
-    x = py"hello_from_module"("Julia")
+    x = py"hello_from_module"("Julia", private_key_py, public_key_py)
     @show x
 end
 

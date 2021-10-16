@@ -94,14 +94,20 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
         self.server.stop(1)
         return route_guide_pb2.Empty()
 
-def serve():
+def serve(private_key, public_root_key):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
     server.add_insecure_port('[::]:50200')
+
+    server_certs_chain_pair = ((private_key, public_root_key),)
+
+    ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
+    server.add_secure_port('[::]:50400', ssl_credentials)
     server.start()
     server.wait_for_termination()
 
-
 if __name__ == '__main__':
-    serve()
+    #private_key = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
+    #cert_chain = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
+    #serve()
     print("Goodbye, World!")

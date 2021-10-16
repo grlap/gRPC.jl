@@ -41,7 +41,11 @@ struct gRPCController <: ProtoRpcController end
     gRPC Http2 responces.
 """
 const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
-const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
+const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [
+    ":status" => "200",
+    "content-type" => "application/grpc",
+    "grpc-encoding" => "gzip"
+]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
 mutable struct SendingStream <: IO
@@ -281,10 +285,24 @@ end
 """
     Client request.
 """
-function call_method(channel::ProtoRpcChannel, service::ServiceDescriptor, method::MethodDescriptor, controller::ProtoRpcController, request)
+function call_method(
+    channel::ProtoRpcChannel,
+    service::ServiceDescriptor,
+    method::MethodDescriptor,
+    controller::ProtoRpcController,
+    request,
+)
     path = "/" * service.name * "/" * method.name
-    headers = [":method" => "POST", ":path" => path, ":authority" => "localhost:5000", ":scheme" => "http", "user-agent" => "grpc-julia", "accept-encoding" => "identity,gzip",
-               "content-type" => "application/grpc", "grpc-accept-encoding" => "identity,deflate,gzip", "te" => "trailers"]
+    headers = [
+        ":method" => "POST",
+        ":path" => path,
+        ":authority" => "localhost:5000",
+        ":scheme" => "http",
+        "user-agent" => "grpc-julia",
+        "accept-encoding" => "identity,gzip",
+        "content-type" => "application/grpc",
+        "grpc-accept-encoding" => "identity,deflate,gzip",
+        "te" => "trailers"]
 
     iob = gRPC.serialize_object(request)
 

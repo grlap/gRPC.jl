@@ -38,6 +38,7 @@ from grpc.tools import command
 using Distributed
 using gRPC
 using Nghttp2
+using OpenSSL
 using ProtoBuf
 using PyCall
 using ResumableFunctions
@@ -46,6 +47,8 @@ using Test
 
 # Include protobuf codegen files.
 include("proto/proto_jl_out/routeguide.jl")
+# Include certificate helper functions.
+include("cert_helpers.jl")
 
 """
     Installs python gRPC modules.
@@ -64,6 +67,25 @@ function python_install_requirements()
     pip_os.main(["install", "grpcio-tools"])
     return nothing
 end
+
+# Create self-signed certificate.
+function get_certificate_pem()
+    p12_cert = create_self_signed_certificate()
+    evp_key, x509, _ = unpack(p12_cert)
+
+    private_key_io = IOBuffer()
+    write(private_key_io, evp_key)
+
+    public_key_io = IOBuffer()
+    write(public_key_io, x509)
+
+    private_key_pem = String(take!(private_key_io))
+    public_key_pem = String(take!(public_key_io))
+
+    return private_key_pem, public_key_pem
+end
+
+private_key_pem, public_key_pem = get_certificate_pem()
 
 # Install gRPC modules
 python_install_requirements()
@@ -89,63 +111,63 @@ configure_pycall()
     gRPC test server implementation.
 """
 module RouteGuideTestHandler
-using gRPC
-using ResumableFunctions
-include("proto/proto_jl_out/routeguide.jl")
+    using gRPC
+    using ResumableFunctions
+    include("proto/proto_jl_out/routeguide.jl")
 
-const GRPC_SERVER = Ref{gRPCServer}()
+    const GRPC_SERVER = Ref{gRPCServer}()
 
-function GetFeature(point::routeguide.Point)
-    println("[Server]->GetFeature")
+    function GetFeature(point::routeguide.Point)
+        println("[Server]->GetFeature")
 
-    feature = routeguide.Feature()
-    feature.name = "from_julia"
-    feature.location = point
-    return feature
-end
-
-@resumable function ListFeatures(rect::routeguide.Rectangle)
-    println("[Server]->ListFeatures")
-
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_1"
-    @yield feature
-
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_2"
-    @yield feature
-
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_3"
-    @yield feature
-
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_4"
-    @yield feature
-end
-
-function RouteEcho(route_note::routeguide.RouteNote)
-    println("[Server]->RouteEcho")
-
-    res = routeguide.RouteNote()
-    res.message = "from_julia"
-    return res
-end
-
-@resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
-    println("[Server]->RouteChat")
-
-    for route in routes
-        println("[Server]::RouteChat receving and sending route")
-        @yield route
+        feature = routeguide.Feature()
+        feature.name = "from_julia"
+        feature.location = point
+        return feature
     end
-end
 
-function TerminateServer(empty::routeguide.Empty)
-    println("[Server]->TerminateServer")
-    GRPC_SERVER.x.is_running = false
-    return routeguide.Empty()
-end
+    @resumable function ListFeatures(rect::routeguide.Rectangle)
+        println("[Server]->ListFeatures")
+
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_1"
+        @yield feature
+
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_2"
+        @yield feature
+
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_3"
+        @yield feature
+
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_4"
+        @yield feature
+    end
+
+    function RouteEcho(route_note::routeguide.RouteNote)
+        println("[Server]->RouteEcho")
+
+        res = routeguide.RouteNote()
+        res.message = "from_julia"
+        return res
+    end
+
+    @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
+        println("[Server]->RouteChat")
+
+        for route in routes
+            println("[Server]::RouteChat receving and sending route")
+            @yield route
+        end
+    end
+
+    function TerminateServer(empty::routeguide.Empty)
+        println("[Server]->TerminateServer")
+        GRPC_SERVER.x.is_running = false
+        return routeguide.Empty()
+    end
 
 end # module RouteGuideTestHandler
 
@@ -168,7 +190,9 @@ function server_call(socket)
 
     controller = gRPCController()
 
-    server = gRPCServer(Dict("routeguide.RouteGuide" => RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler)))
+    server = gRPCServer(
+        Dict("routeguide.RouteGuide" => RouteGuideTestHandler.routeguide.RouteGuide(RouteGuideTestHandler))
+    )
     RouteGuideTestHandler.GRPC_SERVER.x = server
 
     accepted_socket = accept(socket)
@@ -185,8 +209,21 @@ end
 function client_call()
     println("connect_1")
     controller = gRPCController()
-    tcp_connection = connect(50200)
-    grpc_channel = gRPCChannel(Nghttp2.open(tcp_connection))
+    tcp_stream = connect(50200)
+
+    #
+    #ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSv12ClientMethod())
+    #result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_COMPRESSION | OpenSSL.SSL_OP_NO_TLSv1_2)
+    #result = OpenSSL.ssl_set_alpn(ssl_ctx, OpenSSL.UPDATE_HTTP2_ALPN)
+
+    #ssl_stream = SSLStream(ssl_ctx, tcp_stream, tcp_stream)
+
+    # TODO expose connect
+    #result = connect(ssl_stream)
+
+    client_session = Nghttp2.open(tcp_stream)
+    #
+    grpc_channel = gRPCChannel(client_session)
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
@@ -278,7 +315,7 @@ function test2()
 end
 
 function test3()
-    f2 = @spawnat 2 python_server()
+    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
     wait_for_server(UInt16(50200))
 
@@ -302,81 +339,4 @@ end
 @testset "Python server - Julia client" begin
     test3()
     @test true
-end
-
-# Verifies calling into Nghttp library.
-@testset "gRPC " begin
-    # Example how to use PyCall
-    #py_sys = pyimport("sys")
-    #@show py_sys.version
-    #py_os = pyimport("os")
-    #@show py_os.__file__
-
-    # Configure python path for the local imports.
-    #println(@__DIR__)
-    # Both are required for proper imports
-    #pushfirst!(PyVector(pyimport("sys")."path"), @__DIR__)
-    #pushfirst!(PyVector(pyimport("sys")."path"), "$(@__DIR__)/python_test/mymodule")
-    #call_python()
-
-    #@show Threads.nthreads()
-
-    # Server
-    # import Base.Threads.@spawn
-    # s1 = @spawn server_call()
-    # s2 = @spawn python_client()
-    #import Base.Threads.@spawn
-    #@spawn python_client()
-    #@spawn server_call()
-    # f1=remotecall(server_call, 2)
-    # f2=remotecall(python_client, 3)
-
-    #f2 = @spawnat 2 python_client()
-    #fetch(f2)
-
-    #println("1")
-    #t1 = @task begin
-    #python_client()
-    #end
-
-    #t3 = @task begin
-    #client_call()
-    #end
-
-    ###"""
-    #t2 = @task begin
-    #server_call()
-    #end
-    #schedule(t2);
-    # """
-
-    #println("s1")
-    #schedule(t2);
-    #println("s2")
-    #schedule(t1);
-    #println("s3")
-
-    #wait(t2)
-    #wait(t1)
-
-    #stream = recv(server_session)
-    #@show stream
-
-    #send_buffer = IOBuffer(read(stream))
-    #@show send_buffer
-
-    #send(http2_session,
-    #stream_id,
-    #send_buffer,
-    #gRPC.DEFAULT_STATUS_200)
-    #"""
-
-    #test1()
-
-    #test2()
-
-    #f2 = @spawnat 2 python_client()
-    #println("Hello after")
-
-    #@test true
 end
