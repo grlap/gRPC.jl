@@ -99,6 +99,8 @@ def serve(private_key, public_root_key):
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
     server.add_insecure_port('[::]:50200')
 
+    print(private_key)
+    print(public_root_key)
     server_certs_chain_pair = ((private_key, public_root_key),)
 
     ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
