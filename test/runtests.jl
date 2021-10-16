@@ -315,13 +315,16 @@ function test2()
 end
 
 function test3()
-    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show private_key_pem
+    @show public_key_pem
+    python_server(private_key_pem, public_key_pem)
+    #f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50200))
+    #wait_for_server(UInt16(50200))
 
-    client_call()
+    #client_call()
 
-    fetch(f2)
+    #fetch(f2)
 
     return nothing
 end
