@@ -38,7 +38,9 @@ function generate_python_grpc(proto_dir::String, py_out_dir::String)
     py_command = pyimport("grpc.tools.command")
 
     # Add '-V' as a first argument.
-    return py_command.protoc.main(`-V --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`)
+    return py_command.protoc.main(
+        `-V --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`
+    )
     #end
 end
 

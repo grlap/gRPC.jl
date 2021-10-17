@@ -99,9 +99,6 @@ def serve(private_key, public_root_key):
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
     server.add_insecure_port('[::]:50200')
 
-    print(private_key)
-    print(public_root_key)
-
     server_certs_chain_pair = ((private_key, public_root_key),)
 
     ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
@@ -109,8 +106,8 @@ def serve(private_key, public_root_key):
     server.start()
     server.wait_for_termination()
 
-if __name__ == '__main__':
-    #private_key = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
-    #cert_chain = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
-    serve(private_key, cert_chain)
-    print("Goodbye, World!")
+#if __name__ == '__main__':
+#    #private_key = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
+#    #public_root_key = open("/Users/greg/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
+#    serve(private_key, cert_chain)
+#    print("Goodbye, World!")
