@@ -106,8 +106,8 @@ def serve(private_key, public_root_key):
     server.start()
     server.wait_for_termination()
 
-#if __name__ == '__main__':
-#    #private_key = open("~/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
-#    #public_root_key = open("~/GitHub/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
-#    serve(private_key, cert_chain)
-#    print("Goodbye, World!")
+if __name__ == '__main__':
+    private_key = open("/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
+    public_root_key = open("/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
+    serve(private_key, public_root_key)
+    print("Goodbye, World!")
