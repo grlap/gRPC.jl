@@ -17,9 +17,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='proto/route_guide.proto',
   package='routeguide',
   syntax='proto3',
-  serialized_options=b'\n\033io.grpc.examples.routeguideB\017RouteGuideProtoP\001\242\002\003RTG',
+  serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x17proto/route_guide.proto\x12\nrouteguide\"\x16\n\x05\x45mpty\x12\r\n\x05\x64ummy\x18\x01 \x01(\x05\",\n\x05Point\x12\x10\n\x08latitude\x18\x01 \x01(\x05\x12\x11\n\tlongitude\x18\x02 \x01(\x05\"I\n\tRectangle\x12\x1d\n\x02lo\x18\x01 \x01(\x0b\x32\x11.routeguide.Point\x12\x1d\n\x02hi\x18\x02 \x01(\x0b\x32\x11.routeguide.Point\"<\n\x07\x46\x65\x61ture\x12\x0c\n\x04name\x18\x01 \x01(\t\x12#\n\x08location\x18\x02 \x01(\x0b\x32\x11.routeguide.Point\"A\n\tRouteNote\x12#\n\x08location\x18\x01 \x01(\x0b\x32\x11.routeguide.Point\x12\x0f\n\x07message\x18\x02 \x01(\t\"b\n\x0cRouteSummary\x12\x13\n\x0bpoint_count\x18\x01 \x01(\x05\x12\x15\n\rfeature_count\x18\x02 \x01(\x05\x12\x10\n\x08\x64istance\x18\x03 \x01(\x05\x12\x14\n\x0c\x65lapsed_time\x18\x04 \x01(\x05\x32\xfd\x02\n\nRouteGuide\x12\x36\n\nGetFeature\x12\x11.routeguide.Point\x1a\x13.routeguide.Feature\"\x00\x12>\n\x0cListFeatures\x12\x15.routeguide.Rectangle\x1a\x13.routeguide.Feature\"\x00\x30\x01\x12>\n\x0bRecordRoute\x12\x11.routeguide.Point\x1a\x18.routeguide.RouteSummary\"\x00(\x01\x12;\n\tRouteEcho\x12\x15.routeguide.RouteNote\x1a\x15.routeguide.RouteNote\"\x00\x12?\n\tRouteChat\x12\x15.routeguide.RouteNote\x1a\x15.routeguide.RouteNote\"\x00(\x01\x30\x01\x12\x39\n\x0fTerminateServer\x12\x11.routeguide.Empty\x1a\x11.routeguide.Empty\"\x00\x42\x36\n\x1bio.grpc.examples.routeguideB\x0fRouteGuideProtoP\x01\xa2\x02\x03RTGb\x06proto3'
+  serialized_pb=b'\n\x17proto/route_guide.proto\x12\nrouteguide\"\x07\n\x05\x45mpty\",\n\x05Point\x12\x10\n\x08latitude\x18\x01 \x01(\x05\x12\x11\n\tlongitude\x18\x02 \x01(\x05\"I\n\tRectangle\x12\x1d\n\x02lo\x18\x01 \x01(\x0b\x32\x11.routeguide.Point\x12\x1d\n\x02hi\x18\x02 \x01(\x0b\x32\x11.routeguide.Point\"<\n\x07\x46\x65\x61ture\x12\x0c\n\x04name\x18\x01 \x01(\t\x12#\n\x08location\x18\x02 \x01(\x0b\x32\x11.routeguide.Point\"A\n\tRouteNote\x12#\n\x08location\x18\x01 \x01(\x0b\x32\x11.routeguide.Point\x12\x0f\n\x07message\x18\x02 \x01(\t\"b\n\x0cRouteSummary\x12\x13\n\x0bpoint_count\x18\x01 \x01(\x05\x12\x15\n\rfeature_count\x18\x02 \x01(\x05\x12\x10\n\x08\x64istance\x18\x03 \x01(\x05\x12\x14\n\x0c\x65lapsed_time\x18\x04 \x01(\x05\x32\xfd\x02\n\nRouteGuide\x12\x36\n\nGetFeature\x12\x11.routeguide.Point\x1a\x13.routeguide.Feature\"\x00\x12>\n\x0cListFeatures\x12\x15.routeguide.Rectangle\x1a\x13.routeguide.Feature\"\x00\x30\x01\x12>\n\x0bRecordRoute\x12\x11.routeguide.Point\x1a\x18.routeguide.RouteSummary\"\x00(\x01\x12;\n\tRouteEcho\x12\x15.routeguide.RouteNote\x1a\x15.routeguide.RouteNote\"\x00\x12?\n\tRouteChat\x12\x15.routeguide.RouteNote\x1a\x15.routeguide.RouteNote\"\x00(\x01\x30\x01\x12\x39\n\x0fTerminateServer\x12\x11.routeguide.Empty\x1a\x11.routeguide.Empty\"\x00\x62\x06proto3'
 )
 
 
@@ -33,13 +33,6 @@ _EMPTY = _descriptor.Descriptor(
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
-    _descriptor.FieldDescriptor(
-      name='dummy', full_name='routeguide.Empty.dummy', index=0,
-      number=1, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -53,7 +46,7 @@ _EMPTY = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=39,
-  serialized_end=61,
+  serialized_end=46,
 )
 
 
@@ -91,8 +84,8 @@ _POINT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=63,
-  serialized_end=107,
+  serialized_start=48,
+  serialized_end=92,
 )
 
 
@@ -130,8 +123,8 @@ _RECTANGLE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=109,
-  serialized_end=182,
+  serialized_start=94,
+  serialized_end=167,
 )
 
 
@@ -169,8 +162,8 @@ _FEATURE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=184,
-  serialized_end=244,
+  serialized_start=169,
+  serialized_end=229,
 )
 
 
@@ -208,8 +201,8 @@ _ROUTENOTE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=246,
-  serialized_end=311,
+  serialized_start=231,
+  serialized_end=296,
 )
 
 
@@ -261,8 +254,8 @@ _ROUTESUMMARY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=313,
-  serialized_end=411,
+  serialized_start=298,
+  serialized_end=396,
 )
 
 _RECTANGLE.fields_by_name['lo'].message_type = _POINT
@@ -320,7 +313,6 @@ RouteSummary = _reflection.GeneratedProtocolMessageType('RouteSummary', (_messag
 _sym_db.RegisterMessage(RouteSummary)
 
 
-DESCRIPTOR._options = None
 
 _ROUTEGUIDE = _descriptor.ServiceDescriptor(
   name='RouteGuide',
@@ -329,8 +321,8 @@ _ROUTEGUIDE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=414,
-  serialized_end=795,
+  serialized_start=399,
+  serialized_end=780,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetFeature',

@@ -1,15 +1,9 @@
 """
 
-    Julia <-> Julia does not work
-    incorrectly pass the object...
-
-    on
-
     arm64
     ~/miniforge3/bin/python3
 
     https://betterprogramming.pub/using-python-and-r-with-julia-b7019a3d1420
-
 
 Final list:
 [x] Http2Stream can read buffer with given length
@@ -65,8 +59,8 @@ function python_install_requirements()
     #pip_os.main(["uninstall", "grpcio", "-y"])
 
     pip_os.main(["install", "protobuf==3.18.1"])
-    pip_os.main(["install", "grpcio-tools==1.41.0"])
     pip_os.main(["install", "grpcio==1.41.0"])
+    pip_os.main(["install", "grpcio-tools==1.41.0"])
     return nothing
 end
 

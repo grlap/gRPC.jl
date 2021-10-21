@@ -2,13 +2,32 @@
     Generate proto files.
 
 [x] Proto python
-
 [x] Proto Julia 
 
 """
 
 using ProtoBuf
 using PyCall
+
+"""
+    Gets proto files include folder.
+"""
+function get_proto_include_dir()
+    py"""
+    def get_python_path() -> str:
+        import os
+        import inspect
+
+        return inspect.getfile(os)
+    """
+
+    python_os_path = py"get_python_path()"
+
+    python_os_directory, _ = splitdir(python_os_path)
+
+    protobuf_include = joinpath(python_os_directory, "site-packages", "grpc_tools", "_proto")
+    return protobuf_include
+end
 
 """
     Generates Julia gRPC files.
@@ -19,7 +38,10 @@ function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
         mkdir(jl_out_dir)
     end
 
-    ProtoBuf.protoc(`-I=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto`)
+    proto_include_dir = "$(get_proto_include_dir())"
+
+    args = `-I=$(proto_include_dir) --proto_path=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto`
+    ProtoBuf.protoc(args)
     return nothing
 end
 
@@ -37,9 +59,11 @@ function generate_python_grpc(proto_dir::String, py_out_dir::String)
 
     py_command = pyimport("grpc.tools.command")
 
+    proto_include_dir = "$(get_proto_include_dir())"
+
     # Add '-V' as a first argument.
     return py_command.protoc.main(
-        `-V --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`
+        `-V --proto_path=$(proto_include_dir) --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`,
     )
     #end
 end
