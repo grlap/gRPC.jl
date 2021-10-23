@@ -19,7 +19,7 @@ mutable struct Empty <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct Empty
 const __meta_Empty = Ref{ProtoMeta}()
@@ -28,7 +28,18 @@ function meta(::Type{Empty})
         if !isassigned(__meta_Empty)
             __meta_Empty[] = target = ProtoMeta(Empty)
             allflds = Pair{Symbol,Union{Type,String}}[]
-            meta(target, Empty, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            meta(
+                target,
+                Empty,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_Empty[]
     end
@@ -51,7 +62,7 @@ mutable struct Point <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct Point
 const __meta_Point = Ref{ProtoMeta}()
@@ -60,7 +71,18 @@ function meta(::Type{Point})
         if !isassigned(__meta_Point)
             __meta_Point[] = target = ProtoMeta(Point)
             allflds = Pair{Symbol,Union{Type,String}}[:latitude => Int32, :longitude => Int32]
-            meta(target, Point, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            meta(
+                target,
+                Point,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_Point[]
     end
@@ -92,7 +114,7 @@ mutable struct Rectangle <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct Rectangle
 const __meta_Rectangle = Ref{ProtoMeta}()
@@ -101,7 +123,18 @@ function meta(::Type{Rectangle})
         if !isassigned(__meta_Rectangle)
             __meta_Rectangle[] = target = ProtoMeta(Rectangle)
             allflds = Pair{Symbol,Union{Type,String}}[:lo => Point, :hi => Point]
-            meta(target, Rectangle, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            meta(
+                target,
+                Rectangle,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_Rectangle[]
     end
@@ -133,7 +166,7 @@ mutable struct Feature <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct Feature
 const __meta_Feature = Ref{ProtoMeta}()
@@ -142,7 +175,18 @@ function meta(::Type{Feature})
         if !isassigned(__meta_Feature)
             __meta_Feature[] = target = ProtoMeta(Feature)
             allflds = Pair{Symbol,Union{Type,String}}[:name => AbstractString, :location => Point]
-            meta(target, Feature, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            meta(
+                target,
+                Feature,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_Feature[]
     end
@@ -174,7 +218,7 @@ mutable struct RouteNote <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct RouteNote
 const __meta_RouteNote = Ref{ProtoMeta}()
@@ -183,7 +227,18 @@ function meta(::Type{RouteNote})
         if !isassigned(__meta_RouteNote)
             __meta_RouteNote[] = target = ProtoMeta(RouteNote)
             allflds = Pair{Symbol,Union{Type,String}}[:location => Point, :message => AbstractString]
-            meta(target, RouteNote, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            meta(
+                target,
+                RouteNote,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_RouteNote[]
     end
@@ -215,7 +270,7 @@ mutable struct RouteSummary <: ProtoType
                 values[fldname] = isa(fldval, fldtype) ? fldval : convert(fldtype, fldval)
             end
         end
-        obj
+        return obj
     end
 end # mutable struct RouteSummary
 const __meta_RouteSummary = Ref{ProtoMeta}()
@@ -223,8 +278,21 @@ function meta(::Type{RouteSummary})
     ProtoBuf.metalock() do
         if !isassigned(__meta_RouteSummary)
             __meta_RouteSummary[] = target = ProtoMeta(RouteSummary)
-            allflds = Pair{Symbol,Union{Type,String}}[:point_count => Int32, :feature_count => Int32, :distance => Int32, :elapsed_time => Int32]
-            meta(target, RouteSummary, allflds, ProtoBuf.DEF_REQ, ProtoBuf.DEF_FNUM, ProtoBuf.DEF_VAL, ProtoBuf.DEF_PACK, ProtoBuf.DEF_WTYPES, ProtoBuf.DEF_ONEOFS, ProtoBuf.DEF_ONEOF_NAMES)
+            allflds = Pair{Symbol,Union{Type,String}}[
+                :point_count => Int32, :feature_count => Int32, :distance => Int32, :elapsed_time => Int32
+            ]
+            meta(
+                target,
+                RouteSummary,
+                allflds,
+                ProtoBuf.DEF_REQ,
+                ProtoBuf.DEF_FNUM,
+                ProtoBuf.DEF_VAL,
+                ProtoBuf.DEF_PACK,
+                ProtoBuf.DEF_WTYPES,
+                ProtoBuf.DEF_ONEOFS,
+                ProtoBuf.DEF_ONEOF_NAMES,
+            )
         end
         __meta_RouteSummary[]
     end
@@ -245,13 +313,13 @@ end
 
 # service methods for RouteGuide
 const _RouteGuide_methods = MethodDescriptor[
-        MethodDescriptor("GetFeature", 1, Point, Feature),
-        MethodDescriptor("ListFeatures", 2, Rectangle, AbstractChannel{Feature}),
-        MethodDescriptor("RecordRoute", 3, AbstractChannel{Point}, RouteSummary),
-        MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
-        MethodDescriptor("RouteChat", 5, AbstractChannel{RouteNote}, AbstractChannel{RouteNote}),
-        MethodDescriptor("TerminateServer", 6, Empty, Empty)
-    ] # const _RouteGuide_methods
+    MethodDescriptor("GetFeature", 1, Point, Feature),
+    MethodDescriptor("ListFeatures", 2, Rectangle, AbstractChannel{Feature}),
+    MethodDescriptor("RecordRoute", 3, AbstractChannel{Point}, RouteSummary),
+    MethodDescriptor("RouteEcho", 4, RouteNote, RouteNote),
+    MethodDescriptor("RouteChat", 5, AbstractChannel{RouteNote}, AbstractChannel{RouteNote}),
+    MethodDescriptor("TerminateServer", 6, Empty, Empty),
+] # const _RouteGuide_methods
 const _RouteGuide_desc = ServiceDescriptor("routeguide.RouteGuide", 1, _RouteGuide_methods)
 
 RouteGuide(impl::Module) = ProtoService(_RouteGuide_desc, impl)
@@ -266,22 +334,35 @@ mutable struct RouteGuideBlockingStub <: AbstractProtoServiceStub{true}
     RouteGuideBlockingStub(channel::ProtoRpcChannel) = new(ProtoServiceBlockingStub(_RouteGuide_desc, channel))
 end # mutable struct RouteGuideBlockingStub
 
-GetFeature(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[1], controller, inp, done)
-GetFeature(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[1], controller, inp)
+GetFeature(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[1], controller, inp, done)
+GetFeature(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[1], controller, inp)
 
-ListFeatures(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[2], controller, inp, done)
-ListFeatures(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[2], controller, inp)
+ListFeatures(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[2], controller, inp, done)
+ListFeatures(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[2], controller, inp)
 
-RecordRoute(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[3], controller, inp, done)
-RecordRoute(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[3], controller, inp)
+RecordRoute(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[3], controller, inp, done)
+RecordRoute(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[3], controller, inp)
 
-RouteEcho(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp, done)
-RouteEcho(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[4], controller, inp)
+RouteEcho(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[4], controller, inp, done)
+RouteEcho(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[4], controller, inp)
 
-RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp, done)
-RouteChat(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[5], controller, inp)
+RouteChat(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[5], controller, inp, done)
+RouteChat(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[5], controller, inp)
 
-TerminateServer(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) = call_method(stub.impl, _RouteGuide_methods[6], controller, inp, done)
-TerminateServer(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) = call_method(stub.impl, _RouteGuide_methods[6], controller, inp)
+TerminateServer(stub::RouteGuideStub, controller::ProtoRpcController, inp, done::Function) =
+    call_method(stub.impl, _RouteGuide_methods[6], controller, inp, done)
+TerminateServer(stub::RouteGuideBlockingStub, controller::ProtoRpcController, inp) =
+    call_method(stub.impl, _RouteGuide_methods[6], controller, inp)
 
-export Empty, Point, Rectangle, Feature, RouteNote, RouteSummary, RouteGuide, RouteGuideStub, RouteGuideBlockingStub, GetFeature, ListFeatures, RecordRoute, RouteEcho, RouteChat, TerminateServer
+export Empty, Point, Rectangle, Feature, RouteNote, RouteSummary, RouteGuide, RouteGuideStub, RouteGuideBlockingStub,
+    GetFeature, ListFeatures, RecordRoute, RouteEcho, RouteChat, TerminateServer
