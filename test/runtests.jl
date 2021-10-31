@@ -90,63 +90,63 @@ configure_pycall()
     gRPC test server implementation.
 """
 module RouteGuideTestHandler
-    using gRPC
-    using ResumableFunctions
-    include("proto/proto_jl_out/routeguide.jl")
+using gRPC
+using ResumableFunctions
+include("proto/proto_jl_out/routeguide.jl")
 
-    const GRPC_SERVER = Ref{gRPCServer}()
+const GRPC_SERVER = Ref{gRPCServer}()
 
-    function GetFeature(point::routeguide.Point)
-        println("[Server]->GetFeature")
+function GetFeature(point::routeguide.Point)
+    println("[Server]->GetFeature")
 
-        feature = routeguide.Feature()
-        feature.name = "from_julia"
-        feature.location = point
-        return feature
+    feature = routeguide.Feature()
+    feature.name = "from_julia"
+    feature.location = point
+    return feature
+end
+
+@resumable function ListFeatures(rect::routeguide.Rectangle)
+    println("[Server]->ListFeatures")
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_1"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_2"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_3"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_4"
+    @yield feature
+end
+
+function RouteEcho(route_note::routeguide.RouteNote)
+    println("[Server]->RouteEcho")
+
+    res = routeguide.RouteNote()
+    res.message = "from_julia"
+    return res
+end
+
+@resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
+    println("[Server]->RouteChat")
+
+    for route in routes
+        println("[Server]::RouteChat receving and sending route")
+        @yield route
     end
+end
 
-    @resumable function ListFeatures(rect::routeguide.Rectangle)
-        println("[Server]->ListFeatures")
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_1"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_2"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_3"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_4"
-        @yield feature
-    end
-
-    function RouteEcho(route_note::routeguide.RouteNote)
-        println("[Server]->RouteEcho")
-
-        res = routeguide.RouteNote()
-        res.message = "from_julia"
-        return res
-    end
-
-    @resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
-        println("[Server]->RouteChat")
-
-        for route in routes
-            println("[Server]::RouteChat receving and sending route")
-            @yield route
-        end
-    end
-
-    function TerminateServer(empty::routeguide.Empty)
-        println("[Server]->TerminateServer")
-        GRPC_SERVER.x.is_running = false
-        return routeguide.Empty()
-    end
+function TerminateServer(empty::routeguide.Empty)
+    println("[Server]->TerminateServer")
+    GRPC_SERVER.x.is_running = false
+    return routeguide.Empty()
+end
 
 end # module RouteGuideTestHandler
 
@@ -345,6 +345,20 @@ end
     @test true
 end
 
+@resumable function enumerate_test_features()
+    for i in 1:10
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_$i"
+        @yield feature
+    end
+end
+
 @testset "SerializeStream" begin
-#    send_stream = SerializeStream(enumerate(instances))
+    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
+
+    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
+
+    for (index, value) in enumerate(deserialize_stream)
+        @show index, value
+    end
 end

@@ -72,9 +72,11 @@ function internal_read(serialize_stream::SerializeStream)::Bool
 
         # Write to the buffer.
         iob = serialize_object(element)
+
+        current_position = position(serialize_stream.buffer)
         seekend(serialize_stream.buffer)
         write(serialize_stream.buffer, iob)
-        seek(serialize_stream.buffer, 0)
+        seek(serialize_stream.buffer, current_position)
 
         # Get the next element from the iterator.
         serialize_stream.next = iterate(serialize_stream.itr, state)
@@ -88,8 +90,7 @@ end
 function ensure_in_buffer(serialize_stream::SerializeStream, nb::Integer)
     should_read = true
 
-    # TODO comment
-    # Process the enumeration until there is no more available data in HTTP2 stream.
+    # Process the enumeration until there is no more elements available in the collection.
     while should_read
         if bytesavailable(serialize_stream.buffer) >= nb || serialize_stream.eof
             should_read = false
@@ -110,6 +111,12 @@ function Base.read(serialize_stream::SerializeStream, nb::Integer)::Vector{UInt8
     ensure_in_buffer(serialize_stream, nb)
 
     return read(serialize_stream.buffer, nb)
+end
+
+function Base.read(serialize_stream::SerializeStream, ::Type{UInt8})
+    ensure_in_buffer(serialize_stream, 1)
+
+    return read(serialize_stream.buffer, UInt8)
 end
 
 """
