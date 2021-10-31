@@ -8,7 +8,7 @@ using ProtoBuf
 using Sockets
 
 export gRPCChannel, gRPCController, gRPCServer
-export SendingStream, ReceivingStream
+export SerializeStream, DeserializeStream
 export handle_request, call_method
 
 """
@@ -48,51 +48,54 @@ const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [
 ]
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
-mutable struct SendingStream <: IO
+"""
+    Serialize a collection of proto objects into a IO stream.
+"""
+mutable struct SerializeStream <: IO
     itr::Base.Iterators.Enumerate
     next::Any
     buffer::IOBuffer
     eof::Bool
 
-    SendingStream(itr) = new(itr, iterate(itr), IOBuffer(), false)
+    SerializeStream(itr) = new(itr, iterate(itr), IOBuffer(), false)
 end
 
-function internal_read(sending_stream::SendingStream)::Bool
-    if sending_stream.eof
+function internal_read(serialize_stream::SerializeStream)::Bool
+    if serialize_stream.eof
         # No more elements available.
         return false
     end
 
-    if !isnothing(sending_stream.next)
-        (i, state) = sending_stream.next
+    if !isnothing(serialize_stream.next)
+        (i, state) = serialize_stream.next
         (_, element) = i
 
         # Write to the buffer.
         iob = serialize_object(element)
-        seekend(sending_stream.buffer)
-        write(sending_stream.buffer, iob)
-        seek(sending_stream.buffer, 0)
+        seekend(serialize_stream.buffer)
+        write(serialize_stream.buffer, iob)
+        seek(serialize_stream.buffer, 0)
 
         # Get the next element from the iterator.
-        sending_stream.next = iterate(sending_stream.itr, state)
+        serialize_stream.next = iterate(serialize_stream.itr, state)
     else
-        sending_stream.eof = true
+        serialize_stream.eof = true
     end
 
-    return !sending_stream.eof
+    return !serialize_stream.eof
 end
 
-function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
+function ensure_in_buffer(serialize_stream::SerializeStream, nb::Integer)
     should_read = true
 
     # TODO comment
     # Process the enumeration until there is no more available data in HTTP2 stream.
     while should_read
-        if bytesavailable(sending_stream.buffer) >= nb || sending_stream.eof
+        if bytesavailable(serialize_stream.buffer) >= nb || serialize_stream.eof
             should_read = false
         end
 
-        if should_read && internal_read(sending_stream)
+        if should_read && internal_read(serialize_stream)
             continue
         end
 
@@ -101,31 +104,34 @@ function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
     end
 end
 
-Base.eof(sending_stream::SendingStream)::Bool = sending_stream.eof && eof(sending_stream.buffer)
+Base.eof(serialize_stream::SerializeStream)::Bool = serialize_stream.eof && eof(serialize_stream.buffer)
 
-function Base.read(sending_stream::SendingStream, nb::Integer)::Vector{UInt8}
-    ensure_in_buffer(sending_stream, nb)
+function Base.read(serialize_stream::SerializeStream, nb::Integer)::Vector{UInt8}
+    ensure_in_buffer(serialize_stream, nb)
 
-    return read(sending_stream.buffer, nb)
+    return read(serialize_stream.buffer, nb)
 end
 
-struct ReceivingStream{T} <: AbstractChannel{T}
+"""
+    Deserialize a collection of proto objects from the IO stream.
+"""
+struct DeserializeStream{T} <: AbstractChannel{T}
     io::IO
 
-    function ReceivingStream{T}() where {T<:ProtoType}
+    function DeserializeStream{T}() where {T<:ProtoType}
         return new(devnull)
     end
 
-    function ReceivingStream{T}(io::IO) where {T<:ProtoType}
+    function DeserializeStream{T}(io::IO) where {T<:ProtoType}
         return new(io)
     end
 end
 
 function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
-    return ReceivingStream{T}()
+    return DeserializeStream{T}()
 end
 
-function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType}
+function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T<:ProtoType}
     io = stream.io
 
     if eof(io)
@@ -143,12 +149,12 @@ function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType
         end
     end
 
-    data_len = ntoh(read(io, UInt32))
+    data_length = ntoh(read(io, UInt32))
 
     instance::T = T()
 
-    if data_len != 0
-        io = IOBuffer(read(io, data_len))
+    if data_length != 0
+        io = IOBuffer(read(io, data_length))
 
         if compressed == 1
             io = GzipDecompressorStream(io)
@@ -170,10 +176,10 @@ end
 function deserialize_object(io::IO, instance_type::Type{T}) where {T<:ProtoType}
     instance = instance_type()
     is_compressed = read(io, UInt8)
-    data_len = ntoh(read(io, UInt32))
+    data_length = ntoh(read(io, UInt32))
 
-    if data_len != 0
-        io = IOBuffer(read(io, data_len))
+    if data_length != 0
+        io = IOBuffer(read(io, data_length))
 
         if is_compressed == 1
             io = GzipDecompressorStream(io)
@@ -193,8 +199,8 @@ end
     Deserialize a stream of proto objects from the io stream.
 """
 function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T<:ProtoType}
-    results = ReceivingStream{T}(io)
-    return results
+    deserialize_stream = DeserializeStream{T}(io)
+    return deserialize_stream
 end
 
 """
@@ -224,9 +230,9 @@ function serialize_object(instance::ProtoType)::IO
     write(iob, UInt8(0))
     # Placeholder for the serialized object length.
     write(iob, hton(UInt32(0)))
-    data_len = writeproto(iob, instance)
+    data_length = writeproto(iob, instance)
     seek(iob, 1)
-    write(iob, hton(UInt32(data_len)))
+    write(iob, hton(UInt32(data_length)))
 
     #
     seek(iob, 0)
@@ -234,19 +240,8 @@ function serialize_object(instance::ProtoType)::IO
 end
 
 function serialize_object(instances)::IO
-    send_stream = SendingStream(enumerate(instances))
-    return send_stream
-
-    #iob = IOBuffer()
-    # TODO create a new IOStream
-    # As a workaround, serialize all the elements
-    #println("[->] serialize_object!!!")
-    #for (_, instance) in enumerate(instances)
-    #    println("[---]")
-    #    write(iob, serialize_object(instance))
-    #end
-    #seek(iob, 0)
-    #return iob
+    serialize_stream = SerializeStream(enumerate(instances))
+    return serialize_stream
 end
 
 """

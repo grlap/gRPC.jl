@@ -133,7 +133,7 @@ module RouteGuideTestHandler
         return res
     end
 
-    @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
+    @resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
         println("[Server]->RouteChat")
 
         for route in routes
@@ -206,7 +206,8 @@ function client_call(use_ssl::Bool)
     end
 
     client_session = Nghttp2.open(socket)
-    #
+
+    # Create gRPC channel.
     grpc_channel = gRPCChannel(client_session)
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
@@ -214,9 +215,11 @@ function client_call(use_ssl::Bool)
     # RouteChat.
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
     received_count::Int = 0
+
     for route_node in route_nodes
         received_count = received_count + 1
     end
+
     @test received_count == length(collect(ListRouteNotes()))
 
     println("-> route notes.")
@@ -340,4 +343,8 @@ end
 @testset "Insecure Python server - Julia client" begin
     test4()
     @test true
+end
+
+@testset "SerializeStream" begin
+#    send_stream = SerializeStream(enumerate(instances))
 end
