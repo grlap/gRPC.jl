@@ -40,8 +40,9 @@ function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
 
     proto_include_dir = "$(get_proto_include_dir())"
 
-    args = `-I=$(proto_include_dir) --proto_path=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto`
+    args = `-I=$(proto_include_dir) --proto_path=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto helloworld.proto`
     ProtoBuf.protoc(args)
+
     return nothing
 end
 
@@ -61,11 +62,10 @@ function generate_python_grpc(proto_dir::String, py_out_dir::String)
 
     proto_include_dir = "$(get_proto_include_dir())"
 
-    # Add '-V' as a first argument.
-    return py_command.protoc.main(
-        `-V --proto_path=$(proto_include_dir) --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto`,
-    )
-    #end
+    args = `--proto_path=$(proto_include_dir) --proto_path=./test --python_out=$(py_out_dir) --grpc_python_out=$(py_out_dir) proto/route_guide.proto proto/helloworld.proto`
+    py_command.protoc.main(args)
+
+    return nothing
 end
 
 proto_dir = "$(pwd())/test/proto"
