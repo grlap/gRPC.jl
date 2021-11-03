@@ -2,6 +2,7 @@ module gRPC
 
 import ProtoBuf: call_method
 
+using BitFlags
 using CodecZlib
 using Nghttp2
 using ProtoBuf
@@ -10,6 +11,64 @@ using Sockets
 export gRPCChannel, gRPCController, gRPCServer
 export SerializeStream, DeserializeStream
 export handle_request, call_method
+
+"""
+    gRPC status error codes.
+
+    https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+"""
+@enum(StatusCode::Int32,
+    # Not an error; returned on success.
+    STATUS_OK = 0,
+    # The operation was cancelled, typically by the caller. 
+    STATUS_CANCELLED = 1,
+    # Unknown error. For example, this error may be returned when a Status value received from
+    # another address space belongs to an error space that is not known in this address space.
+    STATUS_UNKNOWN = 2,
+    # The client specified an invalid argument.
+    STATUS_INVALID_ARGUMENT = 3,
+    # The deadline expired before the operation could complete.
+    STATUS_DEADLINE_EXCEEDED = 4,
+    # Some requested entity (e.g., file or directory) was not found.
+    STATUS_NOT_FOUND = 5,
+    # The entity that a client attempted to create (e.g., file or directory) already exists.
+    STATUS_ALREADY_EXISTS = 6,
+    # The caller does not have permission to execute the specified operation.
+    # PERMISSION_DENIED must not be used for rejections caused by exhausting some resource.
+    STATUS_PERMISSION_DENIED = 7,
+    # Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space.
+    STATUS_RESOURCE_EXHAUSTED = 8,
+    # The operation was rejected because the system is not in a state required for the operation's execution.
+    STATUS_FAILED_PRECONDITION = 9,
+    # The operation was aborted, typically due to a concurrency issue such as a sequencer check failure or transaction abort.
+    STATUS_ABORTED = 10,
+    # The operation was attempted past the valid range.
+    STATUS_OUT_OF_RANGE = 11,
+    # The operation is not implemented or is not supported/enabled in this service.
+    STATUS_UNIMPLEMENTED = 12,
+    # Internal errors. This means that some invariants expected by the underlying system have been broken.
+    # This error code is reserved for serious errors. 
+    STATUS_INTERNAL = 13,
+    # The service is currently unavailable. This is most likely a transient condition,
+    # which can be corrected by retrying with a backoff.
+    # Note that it is not always safe to retry non-idempotent operations.
+    STATUS_UNAVAILABLE = 14,
+    # Unrecoverable data loss or corruption.
+    STATUS_DATA_LOSS = 15,
+    # The request does not have valid authentication credentials for the operation.
+    STATUS_UNAUTHENTICATED = 16)
+
+const STATUS_CODES = Dict(string(Int(i)) => i for i in instances(StatusCode))
+
+"""
+    gRPC error.
+"""
+struct gRPCError <: Exception
+    status_code::StatusCode
+    msg::AbstractString
+
+    gRPCError(status_code::StatusCode, msg::AbstractString) = new(status_code, msg)
+end
 
 """
     gRPC channel.
@@ -40,12 +99,16 @@ struct gRPCController <: ProtoRpcController end
 """
     gRPC Http2 responces.
 """
-const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
+const DEFAULT_STATUS_200 = [
+    ":status" => "200",
+    "content-type" => "application/grpc",
+    "grpc-encoding" => "gzip"]
+
 const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [
     ":status" => "200",
     "content-type" => "application/grpc",
-    "grpc-encoding" => "gzip"
-]
+    "grpc-encoding" => "gzip"]
+
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
 """
@@ -100,7 +163,7 @@ function ensure_in_buffer(serialize_stream::SerializeStream, nb::Integer)
             continue
         end
 
-        # Read failed
+        # The read stopped.
         break
     end
 end
@@ -258,6 +321,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     request_stream::Http2Stream = recv(http2_server_session)
 
     headers = request_stream.headers
+
     method = headers[":method"]
     path = headers[":path"]
     path_components = split(path, "/"; keepempty=false)
@@ -281,7 +345,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     io = serialize_object(response)
 
-    return submit_response(request_stream, io, gRPC.DEFAULT_STATUS_200, gRPC.DEFAULT_TRAILER)
+    return submit_response(request_stream, io, DEFAULT_STATUS_200, DEFAULT_TRAILER)
 end
 
 """
@@ -292,8 +356,7 @@ function call_method(
     service::ServiceDescriptor,
     method::MethodDescriptor,
     controller::ProtoRpcController,
-    request,
-)
+    request)
     path = "/" * service.name * "/" * method.name
     headers = [
         ":method" => "POST",
@@ -309,6 +372,34 @@ function call_method(
     iob = gRPC.serialize_object(request)
 
     response_stream = submit_request(channel.session, iob, headers)
+
+    response_status_code::StatusCode = STATUS_OK
+
+    # Check grps-status if it is available.
+    if haskey(response_stream.headers, "grpc-status")
+        grpc_status = response_stream.headers["grpc-status"]
+
+        # Get the response code.
+        if haskey(STATUS_CODES, grpc_status)
+            response_status_code = STATUS_CODES[grpc_status]
+        else
+            # Server returned an invalid responose code.
+            response_status_code = STATUS_UNKNOWN
+        end
+    end
+
+    if response_status_code != STATUS_OK
+        local response_message::String
+
+        if haskey(response_stream.headers, "grpc-message")
+            response_message = response_stream.headers["grpc-message"]
+        else
+            # Server did not include a response in the message.
+            response_message = "unknown"
+        end
+
+        throw(gRPCError(response_status_code, response_message))
+    end
 
     response_type = get_response_type(method)
 

@@ -40,7 +40,9 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
+include("proto/proto_jl_out/helloworld.jl")
 include("proto/proto_jl_out/routeguide.jl")
+
 # Include certificate helper functions.
 include("cert_helpers.jl")
 
@@ -183,6 +185,25 @@ function server_call(socket)
     end
 
     return nothing
+end
+
+function helloworld_client_call()
+    controller = gRPCController()
+
+    socket = connect(50200)
+
+    client_session = Nghttp2.open(socket)
+
+    # Create gRPC channel.
+    grpc_channel = gRPCChannel(client_session)
+
+    greeterClient = helloworld.GreeterBlockingStub(grpc_channel)
+
+    hello_request = helloworld.HelloRequest()
+    hello_request.name = "Hello from Julia"
+
+    hello_reply = helloworld.SayHello(greeterClient, controller, hello_request)
+    @show hello_reply
 end
 
 function client_call(use_ssl::Bool)
