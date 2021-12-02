@@ -2,14 +2,73 @@ module gRPC
 
 import ProtoBuf: call_method
 
+using BitFlags
 using CodecZlib
 using Nghttp2
 using ProtoBuf
 using Sockets
 
 export gRPCChannel, gRPCController, gRPCServer
-export SendingStream, ReceivingStream
+export SerializeStream, DeserializeStream
 export handle_request, call_method
+
+"""
+    gRPC status error codes.
+
+    https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+"""
+@enum(StatusCode::Int32,
+    # Not an error; returned on success.
+    STATUS_OK = 0,
+    # The operation was cancelled, typically by the caller. 
+    STATUS_CANCELLED = 1,
+    # Unknown error. For example, this error may be returned when a Status value received from
+    # another address space belongs to an error space that is not known in this address space.
+    STATUS_UNKNOWN = 2,
+    # The client specified an invalid argument.
+    STATUS_INVALID_ARGUMENT = 3,
+    # The deadline expired before the operation could complete.
+    STATUS_DEADLINE_EXCEEDED = 4,
+    # Some requested entity (e.g., file or directory) was not found.
+    STATUS_NOT_FOUND = 5,
+    # The entity that a client attempted to create (e.g., file or directory) already exists.
+    STATUS_ALREADY_EXISTS = 6,
+    # The caller does not have permission to execute the specified operation.
+    # PERMISSION_DENIED must not be used for rejections caused by exhausting some resource.
+    STATUS_PERMISSION_DENIED = 7,
+    # Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space.
+    STATUS_RESOURCE_EXHAUSTED = 8,
+    # The operation was rejected because the system is not in a state required for the operation's execution.
+    STATUS_FAILED_PRECONDITION = 9,
+    # The operation was aborted, typically due to a concurrency issue such as a sequencer check failure or transaction abort.
+    STATUS_ABORTED = 10,
+    # The operation was attempted past the valid range.
+    STATUS_OUT_OF_RANGE = 11,
+    # The operation is not implemented or is not supported/enabled in this service.
+    STATUS_UNIMPLEMENTED = 12,
+    # Internal errors. This means that some invariants expected by the underlying system have been broken.
+    # This error code is reserved for serious errors. 
+    STATUS_INTERNAL = 13,
+    # The service is currently unavailable. This is most likely a transient condition,
+    # which can be corrected by retrying with a backoff.
+    # Note that it is not always safe to retry non-idempotent operations.
+    STATUS_UNAVAILABLE = 14,
+    # Unrecoverable data loss or corruption.
+    STATUS_DATA_LOSS = 15,
+    # The request does not have valid authentication credentials for the operation.
+    STATUS_UNAUTHENTICATED = 16)
+
+const STATUS_CODES = Dict(string(Int(i)) => i for i in instances(StatusCode))
+
+"""
+    gRPC error.
+"""
+struct gRPCError <: Exception
+    status_code::StatusCode
+    msg::AbstractString
+
+    gRPCError(status_code::StatusCode, msg::AbstractString) = new(status_code, msg)
+end
 
 """
     gRPC channel.
@@ -40,92 +99,109 @@ struct gRPCController <: ProtoRpcController end
 """
     gRPC Http2 responces.
 """
-const DEFAULT_STATUS_200 = [":status" => "200", "content-type" => "application/grpc", "grpc-encoding" => "gzip"]
+const DEFAULT_STATUS_200 = [
+    ":status" => "200",
+    "content-type" => "application/grpc",
+    "grpc-encoding" => "gzip"]
+
 const DEFAULT_GZIP_ENCRYPTION_STATUS_200 = [
     ":status" => "200",
     "content-type" => "application/grpc",
-    "grpc-encoding" => "gzip"
-]
+    "grpc-encoding" => "gzip"]
+
 const DEFAULT_TRAILER = ["grpc-status" => "0"]
 
-mutable struct SendingStream <: IO
+"""
+    Serialize a collection of proto objects into a IO stream.
+"""
+mutable struct SerializeStream <: IO
     itr::Base.Iterators.Enumerate
     next::Any
     buffer::IOBuffer
     eof::Bool
 
-    SendingStream(itr) = new(itr, iterate(itr), IOBuffer(), false)
+    SerializeStream(itr) = new(itr, iterate(itr), IOBuffer(), false)
 end
 
-function internal_read(sending_stream::SendingStream)::Bool
-    if sending_stream.eof
+function internal_read(serialize_stream::SerializeStream)::Bool
+    if serialize_stream.eof
         # No more elements available.
         return false
     end
 
-    if !isnothing(sending_stream.next)
-        (i, state) = sending_stream.next
+    if !isnothing(serialize_stream.next)
+        (i, state) = serialize_stream.next
         (_, element) = i
 
         # Write to the buffer.
         iob = serialize_object(element)
-        seekend(sending_stream.buffer)
-        write(sending_stream.buffer, iob)
-        seek(sending_stream.buffer, 0)
+
+        current_position = position(serialize_stream.buffer)
+        seekend(serialize_stream.buffer)
+        write(serialize_stream.buffer, iob)
+        seek(serialize_stream.buffer, current_position)
 
         # Get the next element from the iterator.
-        sending_stream.next = iterate(sending_stream.itr, state)
+        serialize_stream.next = iterate(serialize_stream.itr, state)
     else
-        sending_stream.eof = true
+        serialize_stream.eof = true
     end
 
-    return !sending_stream.eof
+    return !serialize_stream.eof
 end
 
-function ensure_in_buffer(sending_stream::SendingStream, nb::Integer)
+function ensure_in_buffer(serialize_stream::SerializeStream, nb::Integer)
     should_read = true
 
-    # TODO comment
-    # Process the enumeration until there is no more available data in HTTP2 stream.
+    # Process the enumeration until there is no more elements available in the collection.
     while should_read
-        if bytesavailable(sending_stream.buffer) >= nb || sending_stream.eof
+        if bytesavailable(serialize_stream.buffer) >= nb || serialize_stream.eof
             should_read = false
         end
 
-        if should_read && internal_read(sending_stream)
+        if should_read && internal_read(serialize_stream)
             continue
         end
 
-        # Read failed
+        # The read stopped.
         break
     end
 end
 
-Base.eof(sending_stream::SendingStream)::Bool = sending_stream.eof && eof(sending_stream.buffer)
+Base.eof(serialize_stream::SerializeStream)::Bool = serialize_stream.eof && eof(serialize_stream.buffer)
 
-function Base.read(sending_stream::SendingStream, nb::Integer)::Vector{UInt8}
-    ensure_in_buffer(sending_stream, nb)
+function Base.read(serialize_stream::SerializeStream, nb::Integer)::Vector{UInt8}
+    ensure_in_buffer(serialize_stream, nb)
 
-    return read(sending_stream.buffer, nb)
+    return read(serialize_stream.buffer, nb)
 end
 
-struct ReceivingStream{T} <: AbstractChannel{T}
+function Base.read(serialize_stream::SerializeStream, ::Type{UInt8})
+    ensure_in_buffer(serialize_stream, 1)
+
+    return read(serialize_stream.buffer, UInt8)
+end
+
+"""
+    Deserialize a collection of proto objects from the IO stream.
+"""
+struct DeserializeStream{T} <: AbstractChannel{T}
     io::IO
 
-    function ReceivingStream{T}() where {T<:ProtoType}
+    function DeserializeStream{T}() where {T<:ProtoType}
         return new(devnull)
     end
 
-    function ReceivingStream{T}(io::IO) where {T<:ProtoType}
+    function DeserializeStream{T}(io::IO) where {T<:ProtoType}
         return new(io)
     end
 end
 
 function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
-    return ReceivingStream{T}()
+    return DeserializeStream{T}()
 end
 
-function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType}
+function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T<:ProtoType}
     io = stream.io
 
     if eof(io)
@@ -143,12 +219,12 @@ function Base.iterate(stream::ReceivingStream{T}, s=nothing) where {T<:ProtoType
         end
     end
 
-    data_len = ntoh(read(io, UInt32))
+    data_length = ntoh(read(io, UInt32))
 
     instance::T = T()
 
-    if data_len != 0
-        io = IOBuffer(read(io, data_len))
+    if data_length != 0
+        io = IOBuffer(read(io, data_length))
 
         if compressed == 1
             io = GzipDecompressorStream(io)
@@ -170,10 +246,10 @@ end
 function deserialize_object(io::IO, instance_type::Type{T}) where {T<:ProtoType}
     instance = instance_type()
     is_compressed = read(io, UInt8)
-    data_len = ntoh(read(io, UInt32))
+    data_length = ntoh(read(io, UInt32))
 
-    if data_len != 0
-        io = IOBuffer(read(io, data_len))
+    if data_length != 0
+        io = IOBuffer(read(io, data_length))
 
         if is_compressed == 1
             io = GzipDecompressorStream(io)
@@ -193,8 +269,8 @@ end
     Deserialize a stream of proto objects from the io stream.
 """
 function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T<:ProtoType}
-    results = ReceivingStream{T}(io)
-    return results
+    deserialize_stream = DeserializeStream{T}(io)
+    return deserialize_stream
 end
 
 """
@@ -224,9 +300,9 @@ function serialize_object(instance::ProtoType)::IO
     write(iob, UInt8(0))
     # Placeholder for the serialized object length.
     write(iob, hton(UInt32(0)))
-    data_len = writeproto(iob, instance)
+    data_length = writeproto(iob, instance)
     seek(iob, 1)
-    write(iob, hton(UInt32(data_len)))
+    write(iob, hton(UInt32(data_length)))
 
     #
     seek(iob, 0)
@@ -234,19 +310,8 @@ function serialize_object(instance::ProtoType)::IO
 end
 
 function serialize_object(instances)::IO
-    send_stream = SendingStream(enumerate(instances))
-    return send_stream
-
-    #iob = IOBuffer()
-    # TODO create a new IOStream
-    # As a workaround, serialize all the elements
-    #println("[->] serialize_object!!!")
-    #for (_, instance) in enumerate(instances)
-    #    println("[---]")
-    #    write(iob, serialize_object(instance))
-    #end
-    #seek(iob, 0)
-    #return iob
+    serialize_stream = SerializeStream(enumerate(instances))
+    return serialize_stream
 end
 
 """
@@ -256,6 +321,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     request_stream::Http2Stream = recv(http2_server_session)
 
     headers = request_stream.headers
+
     method = headers[":method"]
     path = headers[":path"]
     path_components = split(path, "/"; keepempty=false)
@@ -279,7 +345,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     io = serialize_object(response)
 
-    return submit_response(request_stream, io, gRPC.DEFAULT_STATUS_200, gRPC.DEFAULT_TRAILER)
+    return submit_response(request_stream, io, DEFAULT_STATUS_200, DEFAULT_TRAILER)
 end
 
 """
@@ -290,8 +356,7 @@ function call_method(
     service::ServiceDescriptor,
     method::MethodDescriptor,
     controller::ProtoRpcController,
-    request,
-)
+    request)
     path = "/" * service.name * "/" * method.name
     headers = [
         ":method" => "POST",
@@ -307,6 +372,34 @@ function call_method(
     iob = gRPC.serialize_object(request)
 
     response_stream = submit_request(channel.session, iob, headers)
+
+    response_status_code::StatusCode = STATUS_OK
+
+    # Check grps-status if it is available.
+    if haskey(response_stream.headers, "grpc-status")
+        grpc_status = response_stream.headers["grpc-status"]
+
+        # Get the response code.
+        if haskey(STATUS_CODES, grpc_status)
+            response_status_code = STATUS_CODES[grpc_status]
+        else
+            # Server returned an invalid responose code.
+            response_status_code = STATUS_UNKNOWN
+        end
+    end
+
+    if response_status_code != STATUS_OK
+        local response_message::String
+
+        if haskey(response_stream.headers, "grpc-message")
+            response_message = response_stream.headers["grpc-message"]
+        else
+            # Server did not include a response in the message.
+            response_message = "unknown"
+        end
+
+        throw(gRPCError(response_status_code, response_message))
+    end
 
     response_type = get_response_type(method)
 

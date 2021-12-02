@@ -41,7 +41,7 @@ function create_self_signed_certificate()
     x509_exts = StackOf{X509Extension}()
 
     ext = X509Extension("subjectAltName", "DNS:localhost")
-    OpenSSL.push(x509_exts, ext)
+    push!(x509_exts, ext)
     add_extensions(x509_request, x509_exts)
     finalize(ext)
 
@@ -59,7 +59,7 @@ function create_self_signed_certificate()
 
     x509_exts = x509_request.extensions
 
-    ext = OpenSSL.pop(x509_exts)
+    ext = pop!(x509_exts)
 
     add_extension(x509_certificate, ext)
     add_extension(x509_certificate, X509Extension("keyUsage", "digitalSignature, nonRepudiation, keyEncipherment"))

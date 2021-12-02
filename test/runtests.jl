@@ -40,7 +40,9 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
+include("proto/proto_jl_out/helloworld.jl")
 include("proto/proto_jl_out/routeguide.jl")
+
 # Include certificate helper functions.
 include("cert_helpers.jl")
 
@@ -90,63 +92,63 @@ configure_pycall()
     gRPC test server implementation.
 """
 module RouteGuideTestHandler
-    using gRPC
-    using ResumableFunctions
-    include("proto/proto_jl_out/routeguide.jl")
+using gRPC
+using ResumableFunctions
+include("proto/proto_jl_out/routeguide.jl")
 
-    const GRPC_SERVER = Ref{gRPCServer}()
+const GRPC_SERVER = Ref{gRPCServer}()
 
-    function GetFeature(point::routeguide.Point)
-        println("[Server]->GetFeature")
+function GetFeature(point::routeguide.Point)
+    println("[Server]->GetFeature")
 
-        feature = routeguide.Feature()
-        feature.name = "from_julia"
-        feature.location = point
-        return feature
+    feature = routeguide.Feature()
+    feature.name = "from_julia"
+    feature.location = point
+    return feature
+end
+
+@resumable function ListFeatures(rect::routeguide.Rectangle)
+    println("[Server]->ListFeatures")
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_1"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_2"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_3"
+    @yield feature
+
+    feature = routeguide.Feature()
+    feature.name = "enumerate_from_julia_4"
+    @yield feature
+end
+
+function RouteEcho(route_note::routeguide.RouteNote)
+    println("[Server]->RouteEcho")
+
+    res = routeguide.RouteNote()
+    res.message = "from_julia"
+    return res
+end
+
+@resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
+    println("[Server]->RouteChat")
+
+    for route in routes
+        println("[Server]::RouteChat receving and sending route")
+        @yield route
     end
+end
 
-    @resumable function ListFeatures(rect::routeguide.Rectangle)
-        println("[Server]->ListFeatures")
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_1"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_2"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_3"
-        @yield feature
-
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_4"
-        @yield feature
-    end
-
-    function RouteEcho(route_note::routeguide.RouteNote)
-        println("[Server]->RouteEcho")
-
-        res = routeguide.RouteNote()
-        res.message = "from_julia"
-        return res
-    end
-
-    @resumable function RouteChat(routes::ReceivingStream{routeguide.RouteNote})
-        println("[Server]->RouteChat")
-
-        for route in routes
-            println("[Server]::RouteChat receving and sending route")
-            @yield route
-        end
-    end
-
-    function TerminateServer(empty::routeguide.Empty)
-        println("[Server]->TerminateServer")
-        GRPC_SERVER.x.is_running = false
-        return routeguide.Empty()
-    end
+function TerminateServer(empty::routeguide.Empty)
+    println("[Server]->TerminateServer")
+    GRPC_SERVER.x.is_running = false
+    return routeguide.Empty()
+end
 
 end # module RouteGuideTestHandler
 
@@ -185,6 +187,25 @@ function server_call(socket)
     return nothing
 end
 
+function helloworld_client_call()
+    controller = gRPCController()
+
+    socket = connect(50200)
+
+    client_session = Nghttp2.open(socket)
+
+    # Create gRPC channel.
+    grpc_channel = gRPCChannel(client_session)
+
+    greeterClient = helloworld.GreeterBlockingStub(grpc_channel)
+
+    hello_request = helloworld.HelloRequest()
+    hello_request.name = "Hello from Julia"
+
+    hello_reply = helloworld.SayHello(greeterClient, controller, hello_request)
+    @show hello_reply
+end
+
 function client_call(use_ssl::Bool)
     println("[client_call]: use_ssl:$use_ssl")
     controller = gRPCController()
@@ -206,7 +227,8 @@ function client_call(use_ssl::Bool)
     end
 
     client_session = Nghttp2.open(socket)
-    #
+
+    # Create gRPC channel.
     grpc_channel = gRPCChannel(client_session)
 
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
@@ -214,9 +236,11 @@ function client_call(use_ssl::Bool)
     # RouteChat.
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
     received_count::Int = 0
+
     for route_node in route_nodes
         received_count = received_count + 1
     end
+
     @test received_count == length(collect(ListRouteNotes()))
 
     println("-> route notes.")
@@ -340,4 +364,22 @@ end
 @testset "Insecure Python server - Julia client" begin
     test4()
     @test true
+end
+
+@resumable function enumerate_test_features()
+    for i in 1:10
+        feature = routeguide.Feature()
+        feature.name = "enumerate_from_julia_$i"
+        @yield feature
+    end
+end
+
+@testset "SerializeStream" begin
+    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
+
+    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
+
+    for (index, value) in enumerate(deserialize_stream)
+        @show index, value
+    end
 end

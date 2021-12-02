@@ -10,9 +10,12 @@ import proto.route_guide_pb2 as route_guide_pb2
 
 a = 1
 b = 2
+
+
 def foo():
     print("Hello world!")
     return a + b
+
 
 def get_feature(feature_db, point):
     """Returns Feature at given location or None."""
@@ -57,8 +60,10 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
 
     def ListFeatures(self, request, context):
         yield route_guide_pb2.Feature(name="12")
-        yield route_guide_pb2.Feature(name="123932-04-034", location = route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
-        yield route_guide_pb2.Feature(name="1234", location = route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
+        yield route_guide_pb2.Feature(name="123932-04-034",
+                                      location=route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
+        yield route_guide_pb2.Feature(name="1234",
+                                      location=route_guide_pb2.Point(latitude=400000000, longitude=-750000000))
 
     def RecordRoute(self, request_iterator, context):
         point_count = 0
@@ -94,20 +99,22 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
         self.server.stop(1)
         return route_guide_pb2.Empty()
 
+
 def serve(private_key, public_root_key):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
     server.add_insecure_port('[::]:50200')
 
-    server_certs_chain_pair = ((private_key, public_root_key),)
+    if private_key is not None and public_root_key is not None:
+        server_certs_chain_pair = ((private_key, public_root_key),)
 
-    ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
-    server.add_secure_port('[::]:50400', ssl_credentials)
+        ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
+        server.add_secure_port('[::]:50400', ssl_credentials)
+
     server.start()
     server.wait_for_termination()
 
+
 if __name__ == '__main__':
-    private_key = open("/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.key", "rb").read()
-    public_root_key = open("/grpc/src/python/grpcio_tests/tests/unit/credentials/server1.pem", "rb").read()
-    serve(private_key, public_root_key)
+    serve(None, None)
     print("Goodbye, World!")
