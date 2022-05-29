@@ -184,8 +184,6 @@ function server_call(socket)
         handle_request(nghttp2_server_session, controller, server)
     end
 
-    close(nghttp2_server_session)
-
     close(socket)
 
     return nothing
