@@ -103,17 +103,17 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
 def serve(private_key, public_root_key):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
-    server.add_insecure_port('[::]:50200')
+    server.add_insecure_port('[::]:50300')
 
     if private_key is not None and public_root_key is not None:
         server_certs_chain_pair = ((private_key, public_root_key),)
 
         ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
-        server.add_secure_port('[::]:50400', ssl_credentials)
+        server.add_secure_port('[::]:50500', ssl_credentials)
 
     server.start()
     server.wait_for_termination()
-
+    server.stop(0)
 
 if __name__ == '__main__':
     serve(None, None)

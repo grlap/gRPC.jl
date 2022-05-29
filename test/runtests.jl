@@ -184,6 +184,10 @@ function server_call(socket)
         handle_request(nghttp2_server_session, controller, server)
     end
 
+    close(nghttp2_server_session)
+
+    close(socket)
+
     return nothing
 end
 
@@ -206,14 +210,14 @@ function helloworld_client_call()
     @show hello_reply
 end
 
-function client_call(use_ssl::Bool)
+function client_call(port, use_ssl::Bool)
     println("[client_call]: use_ssl:$use_ssl")
     controller = gRPCController()
 
     local socket::IO
 
     if use_ssl
-        socket = connect(50400)
+        socket = connect(port)
         ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSv12ClientMethod())
         #OpenSSL.ssl_set_min_protocol_version(ssl_ctx, OpenSSL.TLS1_2_VERSION)
         result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
@@ -223,7 +227,7 @@ function client_call(use_ssl::Bool)
 
         connect(socket)
     else
-        socket = connect(50200)
+        socket = connect(port)
     end
 
     client_session = Nghttp2.open(socket)
@@ -303,8 +307,6 @@ function test1()
 
     fetch(f2)
 
-    close(socket)
-
     return nothing
 end
 
@@ -314,20 +316,19 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(false)
+    client_call(50200, false)
 
     fetch(f1)
 
-    close(socket)
     return nothing
 end
 
 function test3()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50400))
+    wait_for_server(UInt16(50500))
 
-    client_call(true)
+    client_call(50500, true)
 
     fetch(f2)
 
@@ -337,9 +338,9 @@ end
 function test4()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50200))
+    wait_for_server(UInt16(50300))
 
-    client_call(false)
+    client_call(50300, false)
 
     fetch(f2)
 
@@ -349,9 +350,13 @@ end
 @testset "Python client - Julia server" begin
     test1()
     @test true
+    test1()
+    @test true
 end
 
 @testset "Julia server and client" begin
+    test2()
+    @test true
     test2()
     @test true
 end
@@ -359,9 +364,13 @@ end
 @testset "Secure Python server - Julia client" begin
     test3()
     @test true
+    test3()
+    @test true
 end
 
 @testset "Insecure Python server - Julia client" begin
+    test4()
+    @test true
     test4()
     @test true
 end
