@@ -73,7 +73,7 @@ jl_out_dir = "$(pwd())/test/proto/proto_jl_out"
 py_out_dir = "$(pwd())/test/python_test/mymodule"
 
 # Julia codegen
-generate_julia_grpc(proto_dir, jl_out_dir)
+#generate_julia_grpc(proto_dir, jl_out_dir)
 
 # Python codegen
 generate_python_grpc(proto_dir, py_out_dir)

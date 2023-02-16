@@ -60,9 +60,9 @@ function python_install_requirements()
     #pip_os.main(["uninstall", "grpcio-tools", "-y"])
     #pip_os.main(["uninstall", "grpcio", "-y"])
 
-    pip_os.main(["install", "protobuf==3.18.1"])
-    pip_os.main(["install", "grpcio==1.41.0"])
-    pip_os.main(["install", "grpcio-tools==1.41.0"])
+    pip_os.main(["install", "protobuf==4.21.12"])
+    pip_os.main(["install", "grpcio==1.51.0"])
+    pip_os.main(["install", "grpcio-tools==1.51.0"])
     return nothing
 end
 
@@ -216,14 +216,14 @@ function client_call(port, use_ssl::Bool)
 
     if use_ssl
         socket = connect(port)
-        ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSv12ClientMethod())
+        ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSClientMethod())
         #OpenSSL.ssl_set_min_protocol_version(ssl_ctx, OpenSSL.TLS1_2_VERSION)
-        result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
+        #result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
         result = OpenSSL.ssl_set_alpn(ssl_ctx, OpenSSL.HTTP2_ALPN)
 
         socket = SSLStream(ssl_ctx, socket, socket)
 
-        connect(socket)
+        Sockets.connect(socket; require_ssl_verification = false)
     else
         socket = connect(port)
     end
