@@ -192,7 +192,7 @@ end
 function helloworld_client_call()
     controller = gRPCController()
 
-    socket = connect(50200)
+    socket = connect(40200)
 
     client_session = Nghttp2.open(socket)
 
@@ -274,7 +274,7 @@ function client_call(port, use_ssl::Bool)
 end
 
 function server_call()
-    socket = listen(50200)
+    socket = listen(40200)
     server_call(socket)
     return nothing
 end
@@ -297,7 +297,7 @@ end
     Use python client.
 """
 function test1()
-    socket = listen(50200)
+    socket = listen(40200)
 
     f2 = @spawnat 2 python_client()
 
@@ -309,12 +309,12 @@ function test1()
 end
 
 function test2()
-    socket = listen(50200)
+    socket = listen(40200)
 
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(50200, false)
+    client_call(40200, false)
 
     fetch(f1)
 
@@ -324,9 +324,9 @@ end
 function test3()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50500))
+    wait_for_server(UInt16(40500))
 
-    client_call(50500, true)
+    client_call(40500, true)
 
     fetch(f2)
 
@@ -336,9 +336,9 @@ end
 function test4()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50300))
+    wait_for_server(UInt16(40300))
 
-    client_call(50300, false)
+    client_call(40300, false)
 
     fetch(f2)
 
