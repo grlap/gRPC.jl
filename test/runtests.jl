@@ -109,28 +109,23 @@ end
 @resumable function ListFeatures(rect::routeguide.Rectangle)
     println("[Server]->ListFeatures")
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_1"
+    feature = routeguide.Feature("enumerate_from_julia_1", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_2"
+    feature = routeguide.Feature("enumerate_from_julia_2", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_3"
+    feature = routeguide.Feature("enumerate_from_julia_3", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_4"
+    feature = routeguide.Feature("enumerate_from_julia_4", nothing)
     @yield feature
 end
 
 function RouteEcho(route_note::routeguide.RouteNote)
     println("[Server]->RouteEcho")
 
-    res = routeguide.RouteNote()
-    res.message = "from_julia"
+    res = routeguide.RouteNote(nothing, "from_julia")
     return res
 end
 
@@ -249,8 +244,6 @@ function client_call(port, use_ssl::Bool)
     # Get feature.
     println("=> client_call.GetFeature")
     in_point = routeguide.Point(1, 2)
-    #in_point.latitude = 1
-    #in_point.longitude = 2
 
     for n in 1:10
         result = routeguide.GetFeature(routeGuide, controller, in_point)
@@ -261,10 +254,10 @@ function client_call(port, use_ssl::Bool)
     in_rect = routeguide.Rectangle(routeguide.Point(2,2), routeguide.Point(4,5))
     @show in_rect
 
-    #list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
-    #for feature in list_features
-    #    println("feature.name: $(feature.name)")
-    #end
+    list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
+    for feature in list_features
+        println("feature.name: $(feature.name)")
+    end
 
     # Terminate the server.
     println("=> client_call.TerminateServer")
@@ -345,12 +338,12 @@ function test4()
     return nothing
 end
 
-#@testset "Python client - Julia server" begin
-#    test1()
-#    @test true
-#    test1()
-#    @test true
-#end
+@testset "Python client - Julia server" begin
+    test1()
+    @test true
+    test1()
+    @test true
+end
 
 @testset "Julia server and client" begin
     test2()
@@ -359,19 +352,19 @@ end
     @test true
 end
 
-#@testset "Secure Python server - Julia client" begin
-#    test3()
-#    @test true
-#    test3()
-#    @test true
-#end
+@testset "Secure Python server - Julia client" begin
+    test3()
+    @test true
+    test3()
+    @test true
+end
 
-#@testset "Insecure Python server - Julia client" begin
-#    test4()
-#    @test true
-#    test4()
-#    @test true
-#end
+@testset "Insecure Python server - Julia client" begin
+    test4()
+    @test true
+    test4()
+    @test true
+end
 
 @resumable function enumerate_test_features()
     for i in 1:10
@@ -380,15 +373,15 @@ end
     end
 end
 
-#@testset "SerializeStream" begin
-#    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
-#
-#    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
-#
-#    for (index, value) in enumerate(deserialize_stream)
-#        @show index, value
-#    end
-#end
+@testset "SerializeStream" begin
+    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
+
+    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
+
+    for (index, value) in enumerate(deserialize_stream)
+        @show index, value
+    end
+end
 
 #include("test\\runtests.jl")
 # f1 = server_call(listen(40200))

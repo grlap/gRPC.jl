@@ -223,8 +223,6 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
 
     data_length = ntoh(read(io, UInt32))
 
-    instance::T = T()
-
     if data_length != 0
         io = IOBuffer(read(io, data_length))
 
@@ -232,14 +230,17 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
             io = GzipDecompressorStream(io)
         end
 
-        readproto(io, instance)
+        proto_decoder = ProtoDecoder(io)
+        instance= decode(proto_decoder, T)
 
         if compressed == 1
             finalize(io)
         end
-    end
 
-    return (instance, 1)
+        return (instance, 1)
+    else
+        return nothing
+    end
 end
 
 
@@ -275,16 +276,25 @@ end
 """
     Deserialize a stream of proto objects from the io stream.
 """
-#function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T}
-#    deserialize_stream = DeserializeStream{T}(io)
-#    return deserialize_stream
-#end
+function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T}
+    deserialize_stream = DeserializeStream{T}(io)
+    return deserialize_stream
+end
 
 """
     Serialize the instance of the proto object into the io buffer.
 """
 function serialize_object(instance)::IO
     iob = IOBuffer()
+
+    instance_type = typeof(instance)
+    is_iterator = hasmethod(iterate, (instance_type,))
+
+    @show "<>=> serialize_object", instance_type, is_iterator
+
+    if is_iterator
+        return serialize_objects(instance)
+    end
 
     # Compression.
     #    write(iob, UInt8(1))
@@ -323,10 +333,10 @@ function serialize_object(instance)::IO
 end
 
 # TODO stream support
-#function serialize_object(instances)::IO
-#    serialize_stream = SerializeStream(enumerate(instances))
-#    return serialize_stream
-#end
+function serialize_objects(instances)::IO
+    serialize_stream = SerializeStream(enumerate(instances))
+    return serialize_stream
+end
 
 """
     Process server request.
@@ -352,6 +362,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     method = find_method(proto_service, method_name)
 
     request_type = get_request_type(proto_service, method)
+    @show request_type
 
     request_argument = deserialize_object(request_stream, request_type)
 
@@ -416,6 +427,7 @@ function call_method(
     end
 
     response_type = get_response_type(method)
+    @show "[-]=> Deserializing response", method, response_type
 
     instance = deserialize_object(response_stream, response_type)
 
