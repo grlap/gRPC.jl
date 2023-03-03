@@ -38,10 +38,15 @@ function generate_julia_grpc(proto_dir::String, jl_out_dir::String)
         mkdir(jl_out_dir)
     end
 
-    proto_include_dir = "$(get_proto_include_dir())"
+    @show jl_out_dir
 
-    args = `-I=$(proto_include_dir) --proto_path=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto helloworld.proto`
-    ProtoBuf.protoc(args)
+    protojl("helloworld.proto", "test/proto", jl_out_dir)
+    protojl("route_guide.proto", "test/proto", jl_out_dir)
+
+    #proto_include_dir = "$(get_proto_include_dir())"
+
+    #args = `-I=$(proto_include_dir) --proto_path=$(proto_dir) --julia_out=$(jl_out_dir) route_guide.proto helloworld.proto`
+    #ProtoBuf.protoc(args)
 
     return nothing
 end

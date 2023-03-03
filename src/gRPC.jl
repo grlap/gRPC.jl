@@ -8,6 +8,8 @@ using Nghttp2
 using ProtoBuf
 using Sockets
 
+include("svc.jl")
+
 export gRPCChannel, gRPCController, gRPCServer
 export SerializeStream, DeserializeStream
 export handle_request, call_method
@@ -188,20 +190,20 @@ end
 struct DeserializeStream{T} <: AbstractChannel{T}
     io::IO
 
-    function DeserializeStream{T}() where {T<:ProtoType}
+    function DeserializeStream{T}() where {T}
         return new(devnull)
     end
 
-    function DeserializeStream{T}(io::IO) where {T<:ProtoType}
+    function DeserializeStream{T}(io::IO) where {T}
         return new(io)
     end
 end
 
-function Base.Iterators.Enumerate{T}() where {T<:ProtoType}
+function Base.Iterators.Enumerate{T}() where {T}
     return DeserializeStream{T}()
 end
 
-function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T<:ProtoType}
+function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
     io = stream.io
 
     if eof(io)
@@ -221,8 +223,6 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T<:ProtoTy
 
     data_length = ntoh(read(io, UInt32))
 
-    instance::T = T()
-
     if data_length != 0
         io = IOBuffer(read(io, data_length))
 
@@ -230,36 +230,44 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T<:ProtoTy
             io = GzipDecompressorStream(io)
         end
 
-        readproto(io, instance)
+        proto_decoder = ProtoDecoder(io)
+        instance= decode(proto_decoder, T)
 
         if compressed == 1
             finalize(io)
         end
-    end
 
-    return (instance, 1)
+        return (instance, 1)
+    else
+        return nothing
+    end
 end
+
 
 """
     Deserialize a proto object instance from the io stream.
 """
-function deserialize_object(io::IO, instance_type::Type{T}) where {T<:ProtoType}
-    instance = instance_type()
+function deserialize_object(io::IO, instance_type::Type{T}) where {T}
     is_compressed = read(io, UInt8)
     data_length = ntoh(read(io, UInt32))
 
     if data_length != 0
+        @show is_compressed, data_length
         io = IOBuffer(read(io, data_length))
+        @show io
 
         if is_compressed == 1
             io = GzipDecompressorStream(io)
         end
 
-        readproto(io, instance)
+        proto_decoder = ProtoDecoder(io)
+        instance= decode(proto_decoder, T)
 
         if is_compressed == 1
             finalize(io)
         end
+    else
+        instance = T()
     end
 
     return instance
@@ -268,7 +276,7 @@ end
 """
     Deserialize a stream of proto objects from the io stream.
 """
-function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T<:ProtoType}
+function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T}
     deserialize_stream = DeserializeStream{T}(io)
     return deserialize_stream
 end
@@ -276,8 +284,17 @@ end
 """
     Serialize the instance of the proto object into the io buffer.
 """
-function serialize_object(instance::ProtoType)::IO
+function serialize_object(instance)::IO
     iob = IOBuffer()
+
+    instance_type = typeof(instance)
+    is_iterator = hasmethod(iterate, (instance_type,))
+
+    @show "<>=> serialize_object", instance_type, is_iterator
+
+    if is_iterator
+        return serialize_objects(instance)
+    end
 
     # Compression.
     #    write(iob, UInt8(1))
@@ -296,20 +313,27 @@ function serialize_object(instance::ProtoType)::IO
 
     #    @show iob
 
-    # No compression
+    # No compression.
     write(iob, UInt8(0))
-    # Placeholder for the serialized object length.
+
+    ## Placeholder for the serialized object length.
     write(iob, hton(UInt32(0)))
-    data_length = writeproto(iob, instance)
+
+    # Encode the object.
+    proto_encoder = ProtoEncoder(iob)
+    encode(proto_encoder, instance)
+
+    data_length = position(iob) -5
     seek(iob, 1)
     write(iob, hton(UInt32(data_length)))
 
     #
-    seek(iob, 0)
+    seekstart(iob)
     return iob
 end
 
-function serialize_object(instances)::IO
+# TODO stream support
+function serialize_objects(instances)::IO
     serialize_stream = SerializeStream(enumerate(instances))
     return serialize_stream
 end
@@ -338,6 +362,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     method = find_method(proto_service, method_name)
 
     request_type = get_request_type(proto_service, method)
+    @show request_type
 
     request_argument = deserialize_object(request_stream, request_type)
 
@@ -402,6 +427,7 @@ function call_method(
     end
 
     response_type = get_response_type(method)
+    @show "[-]=> Deserializing response", method, response_type
 
     instance = deserialize_object(response_stream, response_type)
 

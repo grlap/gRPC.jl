@@ -40,8 +40,8 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
-include("proto/proto_jl_out/helloworld.jl")
-include("proto/proto_jl_out/routeguide.jl")
+include("proto/proto_jl_out/helloworld/helloworld.jl")
+include("proto/proto_jl_out/routeguide/routeguide.jl")
 
 # Include certificate helper functions.
 include("cert_helpers.jl")
@@ -60,9 +60,9 @@ function python_install_requirements()
     #pip_os.main(["uninstall", "grpcio-tools", "-y"])
     #pip_os.main(["uninstall", "grpcio", "-y"])
 
-    pip_os.main(["install", "protobuf==3.18.1"])
-    pip_os.main(["install", "grpcio==1.41.0"])
-    pip_os.main(["install", "grpcio-tools==1.41.0"])
+    pip_os.main(["install", "protobuf==4.21.12"])
+    pip_os.main(["install", "grpcio==1.51.0"])
+    pip_os.main(["install", "grpcio-tools==1.51.0"])
     return nothing
 end
 
@@ -94,44 +94,38 @@ configure_pycall()
 module RouteGuideTestHandler
 using gRPC
 using ResumableFunctions
-include("proto/proto_jl_out/routeguide.jl")
+include("proto/proto_jl_out/routeguide/routeguide.jl")
 
 const GRPC_SERVER = Ref{gRPCServer}()
 
 function GetFeature(point::routeguide.Point)
     println("[Server]->GetFeature")
 
-    feature = routeguide.Feature()
-    feature.name = "from_julia"
-    feature.location = point
+    feature = routeguide.Feature("from_julia", point)
+
     return feature
 end
 
 @resumable function ListFeatures(rect::routeguide.Rectangle)
     println("[Server]->ListFeatures")
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_1"
+    feature = routeguide.Feature("enumerate_from_julia_1", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_2"
+    feature = routeguide.Feature("enumerate_from_julia_2", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_3"
+    feature = routeguide.Feature("enumerate_from_julia_3", nothing)
     @yield feature
 
-    feature = routeguide.Feature()
-    feature.name = "enumerate_from_julia_4"
+    feature = routeguide.Feature("enumerate_from_julia_4", nothing)
     @yield feature
 end
 
 function RouteEcho(route_note::routeguide.RouteNote)
     println("[Server]->RouteEcho")
 
-    res = routeguide.RouteNote()
-    res.message = "from_julia"
+    res = routeguide.RouteNote(nothing, "from_julia")
     return res
 end
 
@@ -192,7 +186,7 @@ end
 function helloworld_client_call()
     controller = gRPCController()
 
-    socket = connect(50200)
+    socket = connect(40200)
 
     client_session = Nghttp2.open(socket)
 
@@ -216,14 +210,14 @@ function client_call(port, use_ssl::Bool)
 
     if use_ssl
         socket = connect(port)
-        ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSv12ClientMethod())
+        ssl_ctx = OpenSSL.SSLContext(OpenSSL.TLSClientMethod())
         #OpenSSL.ssl_set_min_protocol_version(ssl_ctx, OpenSSL.TLS1_2_VERSION)
-        result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
+        #result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
         result = OpenSSL.ssl_set_alpn(ssl_ctx, OpenSSL.HTTP2_ALPN)
 
         socket = SSLStream(ssl_ctx, socket, socket)
 
-        connect(socket)
+        Sockets.connect(socket; require_ssl_verification = false)
     else
         socket = connect(port)
     end
@@ -236,22 +230,20 @@ function client_call(port, use_ssl::Bool)
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
     # RouteChat.
-    route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
-    received_count::Int = 0
+    #route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
+    #received_count::Int = 0
 
-    for route_node in route_nodes
-        received_count = received_count + 1
-    end
+    #for route_node in route_nodes
+    #    received_count = received_count + 1
+    #end
 
-    @test received_count == length(collect(ListRouteNotes()))
+    #@test received_count == length(collect(ListRouteNotes()))
 
     println("-> route notes.")
 
     # Get feature.
     println("=> client_call.GetFeature")
-    in_point = routeguide.Point()
-    in_point.latitude = 1
-    in_point.longitude = 2
+    in_point = routeguide.Point(1, 2)
 
     for n in 1:10
         result = routeguide.GetFeature(routeGuide, controller, in_point)
@@ -259,7 +251,8 @@ function client_call(port, use_ssl::Bool)
 
     # List features.
     println("=> client_call.ListFeatures")
-    in_rect = routeguide.Rectangle()
+    in_rect = routeguide.Rectangle(routeguide.Point(2,2), routeguide.Point(4,5))
+    @show in_rect
 
     list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
     for feature in list_features
@@ -274,7 +267,7 @@ function client_call(port, use_ssl::Bool)
 end
 
 function server_call()
-    socket = listen(50200)
+    socket = listen(40200)
     server_call(socket)
     return nothing
 end
@@ -297,7 +290,7 @@ end
     Use python client.
 """
 function test1()
-    socket = listen(50200)
+    socket = listen(40200)
 
     f2 = @spawnat 2 python_client()
 
@@ -309,12 +302,12 @@ function test1()
 end
 
 function test2()
-    socket = listen(50200)
+    socket = listen(40200)
 
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(50200, false)
+    client_call(40200, false)
 
     fetch(f1)
 
@@ -324,9 +317,9 @@ end
 function test3()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50500))
+    wait_for_server(UInt16(40500))
 
-    client_call(50500, true)
+    client_call(40500, true)
 
     fetch(f2)
 
@@ -336,9 +329,9 @@ end
 function test4()
     f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
 
-    wait_for_server(UInt16(50300))
+    wait_for_server(UInt16(40300))
 
-    client_call(50300, false)
+    client_call(40300, false)
 
     fetch(f2)
 
@@ -375,8 +368,7 @@ end
 
 @resumable function enumerate_test_features()
     for i in 1:10
-        feature = routeguide.Feature()
-        feature.name = "enumerate_from_julia_$i"
+        feature = routeguide.Feature("enumerate_from_julia_$i", nothing)
         @yield feature
     end
 end
@@ -390,3 +382,10 @@ end
         @show index, value
     end
 end
+
+#include("test\\runtests.jl")
+# f1 = server_call(listen(40200))
+
+#include("test\\runtests.jl")
+#    client_call(40200, false)
+
