@@ -252,9 +252,7 @@ function deserialize_object(io::IO, instance_type::Type{T}) where {T}
     data_length = ntoh(read(io, UInt32))
 
     if data_length != 0
-        @show is_compressed, data_length
         io = IOBuffer(read(io, data_length))
-        @show io
 
         if is_compressed == 1
             io = GzipDecompressorStream(io)
@@ -284,13 +282,8 @@ end
 """
     Serialize the instance of the proto object into the io buffer.
 """
-function serialize_object(instance)::IO
+function serialize_object(instance, instance_type=typeof(instance), is_iterator = hasmethod(iterate, (instance_type,)))::IO
     iob = IOBuffer()
-
-    instance_type = typeof(instance)
-    is_iterator = hasmethod(iterate, (instance_type,))
-
-    @show "<>=> serialize_object", instance_type, is_iterator
 
     if is_iterator
         return serialize_objects(instance)
@@ -427,7 +420,6 @@ function call_method(
     end
 
     response_type = get_response_type(method)
-    @show "[-]=> Deserializing response", method, response_type
 
     instance = deserialize_object(response_stream, response_type)
 
