@@ -349,7 +349,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     proto_service::ProtoService = server.proto_services[service_name]
 
-    method = find_method(proto_service, method_name)
+    method = find_method(proto_service.desc, method_name)
 
     request_type = get_request_type(method)
 

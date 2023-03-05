@@ -8,7 +8,8 @@ abstract type AbstractProtoServiceStub{B} end
 
 #
 # MethodDescriptor begin
-const MethodDescriptor = Tuple{String, Int64, DataType, DataType}
+const MethodDescriptor = Tuple{Symbol, Int64, DataType, DataType}
+
 # ==============================
 
 get_request_type(meth::MethodDescriptor) = meth[3]
@@ -24,35 +25,16 @@ get_response_type(meth::MethodDescriptor) = meth[4]
 struct ServiceDescriptor
     name::AbstractString
     index::Int
-    methods::Array{MethodDescriptor}
-    _method_name_idx::Dict{AbstractString,MethodDescriptor}
-    _method_index_idx::Dict{Int,MethodDescriptor}
+    methods::Dict{String, MethodDescriptor}
 
-    function ServiceDescriptor(name::AbstractString, index::Int, methods::Array{MethodDescriptor})
-        name_idx = Dict{AbstractString,MethodDescriptor}()
-        index_idx = Dict{Int,MethodDescriptor}()
-
-        for method in methods
-            method_name = method[1]
-            method_index = method[2]
-
-            name_idx[method_name] = method
-            index_idx[method_index] = method
-        end
-        new(name, index, methods, name_idx, index_idx)
-    end
+    ServiceDescriptor(name::AbstractString, index::Int, methods::Dict{String, MethodDescriptor}) = new(name, index, methods)
 end
 
 function find_method(svc::ServiceDescriptor, name::AbstractString)
-    (name in keys(svc._method_name_idx)) || throw(ProtoServiceException("Service $(svc.name) has no method named $(name)"))
-    svc._method_name_idx[name]
-end
-function find_method(svc::ServiceDescriptor, index::Int)
-    (0 < index <= length(svc.methods)) || throw(ProtoServiceException("Service $(svc.name) has no method at index $(index)"))
-    svc._method_index_idx[index]
+    (name in keys(svc.methods)) || throw(ProtoServiceException("Service $(svc.name) has no method named $(name)"))
+    svc.methods[name]
 end
 
-find_method(svc::ServiceDescriptor, meth::MethodDescriptor) = isempty(meth.name) ? find_method(svc, meth.index) : find_method(svc, meth.name)
 # ==============================
 # ServiceDescriptor end
 #
@@ -65,7 +47,6 @@ struct ProtoService
     impl_module::Module
 end
 
-find_method(svc::ProtoService, name_or_index) = find_method(svc.desc, name_or_index)
 get_request_type(svc::ProtoService, meth::MethodDescriptor) = get_request_type(find_method(svc, meth))
 get_response_type(svc::ProtoService, meth::MethodDescriptor) = get_response_type(find_method(svc, meth))
 get_descriptor_for_type(svc::ProtoService) = svc.desc
