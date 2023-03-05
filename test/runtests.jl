@@ -224,7 +224,8 @@ function client_call(port, use_ssl::Bool)
     # Create gRPC channel.
     grpc_channel = gRPCChannel(client_session)
 
-    routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
+    routeGuide = gRPC.ProtoServiceBlockingStub(routeguide._RouteGuide_desc, grpc_channel)
+    #routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
     # RouteChat.
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
