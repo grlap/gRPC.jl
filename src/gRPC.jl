@@ -272,22 +272,17 @@ function deserialize_object(io::IO, instance_type::Type{T}) where {T}
 end
 
 """
-    Deserialize a stream of proto objects from the io stream.
+    Deserialize a stream of proto objects from the IO stream.
 """
 function deserialize_object(io::IO, ::Type{AbstractChannel{T}}) where {T}
     deserialize_stream = DeserializeStream{T}(io)
     return deserialize_stream
 end
-
 """
     Serialize the instance of the proto object into the io buffer.
 """
-function serialize_object(instance, instance_type=typeof(instance), is_iterator = hasmethod(iterate, (instance_type,)))::IO
+function serialize_object(instance, instance_type=typeof(instance))::IO
     iob = IOBuffer()
-
-    if is_iterator
-        return serialize_objects(instance)
-    end
 
     # Compression.
     #    write(iob, UInt8(1))
@@ -325,8 +320,10 @@ function serialize_object(instance, instance_type=typeof(instance), is_iterator 
     return iob
 end
 
-# TODO stream support
-function serialize_objects(instances)::IO
+"""
+    Serialize a stream of proto objects from a IO stream.
+"""
+function serialize_object(instances, ::Type{AbstractChannel{T}})::IO where {T}
     serialize_stream = SerializeStream(enumerate(instances))
     return serialize_stream
 end
@@ -354,13 +351,14 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     method = find_method(proto_service, method_name)
 
-    request_type = get_request_type(proto_service, method)
+    request_type = method.input_type #get_request_type(proto_service, method)
 
     request_argument = deserialize_object(request_stream, request_type)
 
     response = handle_method(proto_service, method, controller, request_argument)
+    response_type = method.output_type
 
-    io = serialize_object(response)
+    io = serialize_object(response, response_type)
 
     return submit_response(request_stream, io, DEFAULT_STATUS_200, DEFAULT_TRAILER)
 end
@@ -373,12 +371,19 @@ function handle_method(svc::ProtoService, meth::MethodDescriptor, controller::Pr
 end
 
 """
+    Client call.
+"""
+call_method(stub::ProtoServiceBlockingStub, method_name::String, request_type::DataType, response_type::DataType, controller::ProtoRpcController, request) = call_method(stub.channel, stub.desc, method_name, request_type, response_type, controller, request)
+
+
+"""
     Client request.
 """
 function call_method(
     channel::ProtoRpcChannel,
     service::ServiceDescriptor,
     method_name::String,
+    request_type::DataType, 
     response_type::DataType,
     controller::ProtoRpcController,
     request)
@@ -396,7 +401,7 @@ function call_method(
         "grpc-accept-encoding" => "identity,deflate,gzip",
         "te" => "trailers"]
 
-    iob = gRPC.serialize_object(request)
+    iob = gRPC.serialize_object(request, request_type)
 
     response_stream = submit_request(channel.session, iob, headers)
 
