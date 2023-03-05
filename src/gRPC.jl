@@ -379,7 +379,7 @@ end
 """
     Client call.
 """
-call_method(stub::ProtoServiceBlockingStub, method_name::String, request_type::DataType, response_type::DataType, controller::ProtoRpcController, request) = call_method(stub.channel, stub.desc, method_name, request_type, response_type, controller, request)
+call_method(stub, method_name::String, request_type, response_type, controller, request) = call_method(stub.channel, stub.desc, method_name, request_type, response_type, controller, request)
 
 
 """

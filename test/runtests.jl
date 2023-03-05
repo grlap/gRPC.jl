@@ -40,8 +40,16 @@ using Sockets
 using Test
 
 # Include protobuf codegen files.
-include("proto/proto_jl_out/helloworld/helloworld.jl")
-include("proto/proto_jl_out/routeguide/routeguide.jl")
+module helloworld
+import gRPC: call_method
+include("proto/proto_jl_out/helloworld/helloworld_pb.jl")
+end
+
+module routeguide
+import gRPC: call_method
+include("proto/proto_jl_out/routeguide/route_guide_pb.jl")
+end
+
 
 # Include certificate helper functions.
 include("cert_helpers.jl")
@@ -94,6 +102,7 @@ configure_pycall()
 module RouteGuideTestHandler
 using gRPC
 using ResumableFunctions
+import gRPC: call_method
 include("proto/proto_jl_out/routeguide/routeguide.jl")
 
 const GRPC_SERVER = Ref{gRPCServer}()
@@ -225,7 +234,6 @@ function client_call(port, use_ssl::Bool)
     grpc_channel = gRPCChannel(client_session)
 
     routeGuide = gRPC.ProtoServiceBlockingStub(routeguide._RouteGuide_desc, grpc_channel)
-    #routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
     # RouteChat.
     route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
@@ -298,6 +306,7 @@ function test1()
 
     return nothing
 end
+
 
 function test2()
     socket = listen(40200)
