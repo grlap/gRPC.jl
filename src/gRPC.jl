@@ -349,7 +349,7 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     proto_service::ProtoService = server.proto_services[service_name]
 
-    method = find_method(proto_service.desc, method_name)
+    method = find_method(proto_service[1], method_name)
 
     request_type = get_request_type(method)
 
@@ -367,7 +367,7 @@ function handle_method(svc::ProtoService, meth_descriptor::MethodDescriptor, con
     method_name = meth_descriptor[1]
     request_type = get_request_type(meth_descriptor)
 
-    method_handler = getfield(svc.impl_module, Symbol(method_name))
+    method_handler = getfield(svc[2], Symbol(method_name))
 
     if isa(request, request_type) == false
         throw(ProtoServiceException("Invalid input type $(typeof(request)) for service $(method_name). Expected type $(request_type)"))

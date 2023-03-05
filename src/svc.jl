@@ -40,10 +40,7 @@ end
 #
 # Service begin
 # ==============================
-struct ProtoService
-    desc::ServiceDescriptor
-    impl_module::Module
-end
+const ProtoService = Tuple{ServiceDescriptor, Module}
 
 get_request_type(svc::ProtoService, meth::MethodDescriptor) = get_request_type(find_method(svc, meth))
 get_response_type(svc::ProtoService, meth::MethodDescriptor) = get_response_type(find_method(svc, meth))
