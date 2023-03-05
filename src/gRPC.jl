@@ -351,23 +351,29 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     method = find_method(proto_service, method_name)
 
-    request_type = method.input_type #get_request_type(proto_service, method)
+    request_type = get_request_type(method)
 
     request_argument = deserialize_object(request_stream, request_type)
 
     response = handle_method(proto_service, method, controller, request_argument)
-    response_type = method.output_type
+    response_type = get_response_type(method)
 
     io = serialize_object(response, response_type)
 
     return submit_response(request_stream, io, DEFAULT_STATUS_200, DEFAULT_TRAILER)
 end
 
-function handle_method(svc::ProtoService, meth::MethodDescriptor, controller::ProtoRpcController, request)
-    meth_desc = find_method(svc, meth)
-    m = getfield(svc.impl_module, Symbol(meth_desc.name))
-    isa(request, meth_desc.input_type) || throw(ProtoServiceException("Invalid input type $(typeof(request)) for service $(meth_desc.name). Expected type $(meth_desc.input_type)"))
-    m(request)
+function handle_method(svc::ProtoService, meth_descriptor::MethodDescriptor, controller::ProtoRpcController, request)
+    method_name = meth_descriptor[1]
+    request_type = get_request_type(meth_descriptor)
+
+    method_handler = getfield(svc.impl_module, Symbol(method_name))
+
+    if isa(request, request_type) == false
+        throw(ProtoServiceException("Invalid input type $(typeof(request)) for service $(method_name). Expected type $(request_type)"))
+    end
+
+    result = method_handler(request)
 end
 
 """

@@ -8,15 +8,11 @@ abstract type AbstractProtoServiceStub{B} end
 
 #
 # MethodDescriptor begin
+const MethodDescriptor = Tuple{String, Int64, DataType, DataType}
 # ==============================
-struct MethodDescriptor
-    name::AbstractString
-    index::Int
-    input_type::DataType
-    output_type::DataType
-end
-get_request_type(meth::MethodDescriptor) = meth.input_type
-get_response_type(meth::MethodDescriptor) = meth.output_type
+
+get_request_type(meth::MethodDescriptor) = meth[3]
+get_response_type(meth::MethodDescriptor) = meth[4]
 
 # ==============================
 # MethodDescriptor end
@@ -35,9 +31,13 @@ struct ServiceDescriptor
     function ServiceDescriptor(name::AbstractString, index::Int, methods::Array{MethodDescriptor})
         name_idx = Dict{AbstractString,MethodDescriptor}()
         index_idx = Dict{Int,MethodDescriptor}()
+
         for method in methods
-            name_idx[method.name] = method
-            index_idx[method.index] = method
+            method_name = method[1]
+            method_index = method[2]
+
+            name_idx[method_name] = method
+            index_idx[method_index] = method
         end
         new(name, index, methods, name_idx, index_idx)
     end
@@ -51,6 +51,7 @@ function find_method(svc::ServiceDescriptor, index::Int)
     (0 < index <= length(svc.methods)) || throw(ProtoServiceException("Service $(svc.name) has no method at index $(index)"))
     svc._method_index_idx[index]
 end
+
 find_method(svc::ServiceDescriptor, meth::MethodDescriptor) = isempty(meth.name) ? find_method(svc, meth.index) : find_method(svc, meth.name)
 # ==============================
 # ServiceDescriptor end
