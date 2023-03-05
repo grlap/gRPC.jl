@@ -147,16 +147,13 @@ end
 end # module RouteGuideTestHandler
 
 @resumable function ListRouteNotes()
-    route_node = routeguide.RouteNote()
-    route_node.message = "Julia Client 1"
+    route_node = routeguide.RouteNote(nothing, "Julia Client 1")
     @yield route_node
 
-    route_node = routeguide.RouteNote()
-    route_node.message = "Julia Client 2"
+    route_node = routeguide.RouteNote(nothing, "Julia Client 2")
     @yield route_node
 
-    route_node = routeguide.RouteNote()
-    route_node.message = "Julia Client 3"
+    route_node = routeguide.RouteNote(nothing, "Julia Client 3")
     @yield route_node
 end
 
@@ -230,14 +227,14 @@ function client_call(port, use_ssl::Bool)
     routeGuide = routeguide.RouteGuideBlockingStub(grpc_channel)
 
     # RouteChat.
-    #route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
-    #received_count::Int = 0
+    route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
+    received_count::Int = 0
 
-    #for route_node in route_nodes
-    #    received_count = received_count + 1
-    #end
+    for route_node in route_nodes
+        received_count = received_count + 1
+    end
 
-    #@test received_count == length(collect(ListRouteNotes()))
+    @test received_count == length(collect(ListRouteNotes()))
 
     println("-> route notes.")
 
@@ -383,9 +380,10 @@ end
     end
 end
 
+
 #include("test\\runtests.jl")
 # f1 = server_call(listen(40200))
 
 #include("test\\runtests.jl")
-#    client_call(40200, false)
+#client_call(40200, false)
 

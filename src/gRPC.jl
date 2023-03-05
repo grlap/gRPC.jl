@@ -355,15 +355,21 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
     method = find_method(proto_service, method_name)
 
     request_type = get_request_type(proto_service, method)
-    @show request_type
 
     request_argument = deserialize_object(request_stream, request_type)
 
-    response = call_method(proto_service, method, controller, request_argument)
+    response = handle_method(proto_service, method, controller, request_argument)
 
     io = serialize_object(response)
 
     return submit_response(request_stream, io, DEFAULT_STATUS_200, DEFAULT_TRAILER)
+end
+
+function handle_method(svc::ProtoService, meth::MethodDescriptor, controller::ProtoRpcController, request)
+    meth_desc = find_method(svc, meth)
+    m = getfield(svc.impl_module, Symbol(meth_desc.name))
+    isa(request, meth_desc.input_type) || throw(ProtoServiceException("Invalid input type $(typeof(request)) for service $(meth_desc.name). Expected type $(meth_desc.input_type)"))
+    m(request)
 end
 
 """
@@ -372,10 +378,13 @@ end
 function call_method(
     channel::ProtoRpcChannel,
     service::ServiceDescriptor,
-    method::MethodDescriptor,
+    method_name::String,
+    response_type::DataType,
     controller::ProtoRpcController,
     request)
-    path = "/" * service.name * "/" * method.name
+    
+    path = "/" * service.name * "/" * method_name
+
     headers = [
         ":method" => "POST",
         ":path" => path,
@@ -418,8 +427,6 @@ function call_method(
 
         throw(gRPCError(response_status_code, response_message))
     end
-
-    response_type = get_response_type(method)
 
     instance = deserialize_object(response_stream, response_type)
 
