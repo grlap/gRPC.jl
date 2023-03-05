@@ -22,17 +22,15 @@ get_response_type(meth::MethodDescriptor) = meth[4]
 #
 # ServiceDescriptor begin
 # ==============================
-struct ServiceDescriptor
-    name::AbstractString
-    index::Int
-    methods::Dict{String, MethodDescriptor}
 
-    ServiceDescriptor(name::AbstractString, index::Int, methods::Dict{String, MethodDescriptor}) = new(name, index, methods)
-end
+const ServiceDescriptor = Tuple{String, Int, Dict{String, MethodDescriptor}}
 
-function find_method(svc::ServiceDescriptor, name::AbstractString)
-    (name in keys(svc.methods)) || throw(ProtoServiceException("Service $(svc.name) has no method named $(name)"))
-    svc.methods[name]
+function find_method(svc::ServiceDescriptor, method_name::AbstractString)
+    svc_name = svc[1]
+    svc_methods = svc[3]
+
+    (method_name in keys(svc_methods)) || throw(ProtoServiceException("Service $(svc_name) has no method named $(method_name)"))
+    svc_methods[method_name]
 end
 
 # ==============================

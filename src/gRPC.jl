@@ -394,7 +394,9 @@ function call_method(
     controller::ProtoRpcController,
     request)
     
-    path = "/" * service.name * "/" * method_name
+    service_name = service[1]
+
+    path = "/" * service_name * "/" * method_name
 
     headers = [
         ":method" => "POST",
