@@ -1,7 +1,5 @@
 module gRPC
 
-import ProtoBuf: call_method
-
 using BitFlags
 using CodecZlib
 using Nghttp2
