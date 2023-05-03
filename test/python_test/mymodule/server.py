@@ -8,22 +8,12 @@ from concurrent import futures
 import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
 import proto.route_guide_pb2 as route_guide_pb2
 
-a = 1
-b = 2
-
-
-def foo():
-    print("Hello world!")
-    return a + b
-
-
 def get_feature(feature_db, point):
     """Returns Feature at given location or None."""
     for feature in feature_db:
         if feature.location == point:
             return feature
     return None
-
 
 def get_distance(start, end):
     """Distance between two points."""
@@ -45,7 +35,6 @@ def get_distance(start, end):
     R = 6371000
     # metres
     return R * c
-
 
 class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
     """Provides methods that implement functionality of route guide server."""
