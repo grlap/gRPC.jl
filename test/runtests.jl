@@ -198,18 +198,15 @@ function helloworld_client_call()
     # Create gRPC channel.
     grpc_channel = gRPCChannel(client_session)
 
-    greeterClient = helloworld.GreeterBlockingStub(grpc_channel)
-
     hello_request = helloworld.HelloRequest()
     hello_request.name = "Hello from Julia"
 
-    hello_reply = helloworld.SayHello(greeterClient, controller, hello_request)
+    hello_reply = helloworld.SayHello(grpc_channel, hello_request)
     @show hello_reply
 end
 
 function client_call(port, use_ssl::Bool)
     println("[client_call]: use_ssl:$use_ssl")
-    controller = gRPCController()
 
     local socket::IO
 
