@@ -6,11 +6,65 @@ using Nghttp2
 using ProtoBuf
 using Sockets
 
-include("svc.jl")
-
 export gRPCChannel, gRPCController, gRPCServer
 export SerializeStream, DeserializeStream
 export handle_request, call_method
+
+struct ProtoServiceException <: Exception
+    msg::AbstractString
+end
+
+abstract type ProtoRpcChannel end
+abstract type ProtoRpcController end
+abstract type AbstractProtoServiceStub{B} end
+
+"""
+    MethodDescriptor.
+"""
+const MethodDescriptor = Tuple{Symbol, Int64, DataType, DataType}
+
+get_request_type(method_descr::MethodDescriptor) = method_descr[3]
+get_response_type(method_descr::MethodDescriptor) = method_descr[4]
+
+# ==============================
+# MethodDescriptor end
+#
+
+#
+# ServiceDescriptor begin
+# ==============================
+
+const ServiceDescriptor = Tuple{String, Int, Dict{String, MethodDescriptor}}
+
+function find_method(svc::ServiceDescriptor, method_name::AbstractString)
+    svc_name = svc[1]
+    svc_methods = svc[3]
+
+    (method_name in keys(svc_methods)) || throw(ProtoServiceException("Service $(svc_name) has no method named $(method_name)"))
+    svc_methods[method_name]
+end
+
+# ==============================
+# ServiceDescriptor end
+#
+
+#
+# Service begin
+# ==============================
+const ProtoService = Tuple{ServiceDescriptor, Module}
+
+get_request_type(svc::ProtoService, meth::MethodDescriptor) = get_request_type(find_method(svc, meth))
+get_response_type(svc::ProtoService, meth::MethodDescriptor) = get_response_type(find_method(svc, meth))
+get_descriptor_for_type(svc::ProtoService) = svc.desc
+
+
+# ==============================
+# Service end
+#
+
+# ==============================
+# Service Stubs end
+#
 
 """
     gRPC status error codes.
@@ -245,7 +299,7 @@ end
 """
     Deserialize a proto object instance from the io stream.
 """
-function deserialize_object(io::IO, instance_type::Type{T}) where {T}
+function deserialize_object(io::IO, ::Type{T}) where {T}
     is_compressed = read(io, UInt8)
     data_length = ntoh(read(io, UInt32))
 
@@ -377,23 +431,20 @@ end
 """
     Client call.
 """
-call_method(stub, method_name::String, request_type, response_type, controller, request) = call_method(stub.channel, stub.desc, method_name, request_type, response_type, controller, request)
-
+call_method(channel, service_name::String, method_name::String, request_type, response_type, controller, request) =
+    call_method(channel, service_name, method_name, request_type, response_type, request)
 
 """
     Client request.
 """
 function call_method(
     channel::ProtoRpcChannel,
-    service::ServiceDescriptor,
+    service_name::String,
     method_name::String,
-    request_type::DataType, 
+    request_type::DataType,
     response_type::DataType,
-    controller::ProtoRpcController,
-    request)
+    request_object)
     
-    service_name = service[1]
-
     path = "/" * service_name * "/" * method_name
 
     headers = [
@@ -407,7 +458,7 @@ function call_method(
         "grpc-accept-encoding" => "identity,deflate,gzip",
         "te" => "trailers"]
 
-    iob = gRPC.serialize_object(request, request_type)
+    iob = gRPC.serialize_object(request_object, request_type)
 
     response_stream = submit_request(channel.session, iob, headers)
 
@@ -439,9 +490,9 @@ function call_method(
         throw(gRPCError(response_status_code, response_message))
     end
 
-    instance = deserialize_object(response_stream, response_type)
+    response_object = deserialize_object(response_stream, response_type)
 
-    return instance
+    return response_object
 end
 
 end # module gRPC
