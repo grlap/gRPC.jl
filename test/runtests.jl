@@ -40,12 +40,12 @@ using Test
 
 # Include protobuf codegen files.
 module helloworld
-import gRPC: call_method
+import gRPC: grpc_client_call
 include("proto/proto_jl_out/helloworld/helloworld_pb.jl")
 end
 
 module routeguide
-import gRPC: call_method
+import gRPC: grpc_client_call
 include("proto/proto_jl_out/routeguide/route_guide_pb.jl")
 end
 
@@ -233,7 +233,7 @@ function client_call(port, use_ssl::Bool)
     grpc_channel = gRPCChannel(client_session)
 
     # RouteChat.
-    route_nodes = routeguide.RouteChat(grpc_channel, controller, ListRouteNotes())
+    route_nodes = routeguide.RouteChat(grpc_channel, ListRouteNotes())
     received_count::Int = 0
 
     for route_node in route_nodes
@@ -249,7 +249,7 @@ function client_call(port, use_ssl::Bool)
     in_point = routeguide.Point(1, 2)
 
     for n in 1:10
-        result = routeguide.GetFeature(grpc_channel, controller, in_point)
+        result = routeguide.GetFeature(grpc_channel, in_point)
     end
 
     # List features.
@@ -257,14 +257,14 @@ function client_call(port, use_ssl::Bool)
     in_rect = routeguide.Rectangle(routeguide.Point(2,2), routeguide.Point(4,5))
     @show in_rect
 
-    list_features = routeguide.ListFeatures(grpc_channel, controller, in_rect)
+    list_features = routeguide.ListFeatures(grpc_channel, in_rect)
     for feature in list_features
         println("feature.name: $(feature.name)")
     end
 
     # Terminate the server.
     println("=> client_call.TerminateServer")
-    _ = routeguide.TerminateServer(grpc_channel, controller, routeguide.Empty())
+    _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
 
     return nothing
 end

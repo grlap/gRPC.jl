@@ -8,7 +8,7 @@ using Sockets
 
 export gRPCChannel, gRPCController, gRPCServer
 export SerializeStream, DeserializeStream
-export handle_request, call_method
+export handle_request, grpc_client_call
 
 struct ProtoServiceException <: Exception
     msg::AbstractString
@@ -431,7 +431,7 @@ end
 """
     Client call.
 """
-call_method(channel, service_name::String, method_name::String, request_type, response_type, controller, request) =
+grpc_client_call(channel, service_name::String, method_name::String, request_type, response_type, request) =
     call_method(channel, service_name, method_name, request_type, response_type, request)
 
 """
