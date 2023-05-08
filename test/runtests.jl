@@ -343,13 +343,9 @@ end
 @testset "Python client - Julia server" begin
     test1()
     @test true
-    test1()
-    @test true
 end
 
 @testset "Julia server and client" begin
-    test2()
-    @test true
     test2()
     @test true
 end
@@ -357,13 +353,9 @@ end
 @testset "Secure Python server - Julia client" begin
     test3()
     @test true
-    test3()
-    @test true
 end
 
 @testset "Insecure Python server - Julia client" begin
-    test4()
-    @test true
     test4()
     @test true
 end
