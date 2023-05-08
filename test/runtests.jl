@@ -101,7 +101,7 @@ configure_pycall()
 """
 module RouteGuideTestHandler
 using gRPC
-using ResumableFunctions
+using Semicoroutines
 import gRPC: call_method
 include("proto/proto_jl_out/routeguide/routeguide.jl")
 
