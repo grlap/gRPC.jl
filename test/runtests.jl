@@ -142,7 +142,7 @@ end
     println("[Server]->RouteChat")
 
     for route in routes
-        println("[Server]::RouteChat receving and sending route")
+        println("[Server]::RouteChat receving and sending route", route)
         @yield route
     end
 end
