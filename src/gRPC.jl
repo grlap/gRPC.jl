@@ -180,6 +180,7 @@ end
 function internal_read(serialize_stream::SerializeStream)::Bool
     @show "[SerializeStream]::internal_read"
     if serialize_stream.eof
+        @show "[SerializeStream]::internal_read eof"
         # No more elements available.
         return false
     end
@@ -196,8 +197,10 @@ function internal_read(serialize_stream::SerializeStream)::Bool
         write(serialize_stream.buffer, iob)
         seek(serialize_stream.buffer, current_position)
 
+        @show "[SerializeStream]::internal_read iterate", state
         # Get the next element from the iterator.
         serialize_stream.next = iterate(serialize_stream.itr, state)
+        @show "[SerializeStream]::internal_read iterate done"
     else
         serialize_stream.eof = true
     end
