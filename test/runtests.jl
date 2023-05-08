@@ -64,13 +64,13 @@ function python_install_requirements()
     pip_os = pyimport("pip")
     pip_os.main(["list"])
 
-    pip_os.main(["uninstall", "protobuf", "-y"])
-    pip_os.main(["uninstall", "grpcio-tools", "-y"])
-    pip_os.main(["uninstall", "grpcio", "-y"])
+    #pip_os.main(["uninstall", "protobuf", "-y"])
+    #pip_os.main(["uninstall", "grpcio-tools", "-y"])
+    #pip_os.main(["uninstall", "grpcio", "-y"])
 
-    pip_os.main(["install", "protobuf==4.22.4", "--force-reinstall"])
-    pip_os.main(["install", "grpcio==1.54.0", "--force-reinstall"])
-    pip_os.main(["install", "grpcio-tools==1.54.0", "--force-reinstall"])
+    pip_os.main(["install", "protobuf==4.22.4"])
+    pip_os.main(["install", "grpcio==1.54.0"])
+    pip_os.main(["install", "grpcio-tools==1.54.0"])
     return nothing
 end
 

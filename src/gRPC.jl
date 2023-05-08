@@ -256,54 +256,45 @@ function Base.Iterators.Enumerate{T}() where {T}
 end
 
 function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
+    @show "[DeserializeStream{T}]::iterate", s
     io = stream.io
 
     if eof(io)
         return nothing
     end
 
+    local compressed::Bool
     try
-        instance = deserialize_object(io, T)
-        return (instance, 1)
+        compressed = read(io, UInt8)
     catch e
         if isa(e, EOFError)
-                return nothing
-            else
-                rethrow()
+            return nothing
+        else
+            rethrow()
         end
     end
 
-    #local compressed::Bool
-    #try
-    #    compressed = read(io, UInt8)
-    #catch e
-    #    if isa(e, EOFError)
-    #        return nothing
-    #    else
-    #        rethrow()
-    #    end
-    #end
+    data_length = ntoh(read(io, UInt32))
 
-    #data_length = ntoh(read(io, UInt32))
+    if data_length != 0
+        io = IOBuffer(read(io, data_length))
 
-    #if data_length != 0
-    #    io = IOBuffer(read(io, data_length))
+        if compressed == 1
+            io = GzipDecompressorStream(io)
+        end
 
-    #    if compressed == 1
-    #        io = GzipDecompressorStream(io)
-    #    end
+        proto_decoder = ProtoDecoder(io)
+        instance= decode(proto_decoder, T)
 
-    #    proto_decoder = ProtoDecoder(io)
-    #    instance= decode(proto_decoder, T)
+        if compressed == 1
+            finalize(io)
+        end
 
-    #    if compressed == 1
-    #        finalize(io)
-    #    end
-
-    #    return (instance, 1)
-    #else
-    #    return nothing
-    #end
+        
+        return (instance, isnothing(s) ? 1 : s + 1)
+    else
+        return nothing
+    end
 end
 
 
