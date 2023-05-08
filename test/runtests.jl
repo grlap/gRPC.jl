@@ -34,7 +34,7 @@ using Nghttp2
 using OpenSSL
 using ProtoBuf
 using PyCall
-using ResumableFunctions
+using Semicoroutines
 using Sockets
 using Test
 
@@ -139,12 +139,14 @@ function RouteEcho(route_note::routeguide.RouteNote)
 end
 
 @resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
-    println("[Server]->RouteChat")
+    println("[Server]::RouteChat => Begin")
 
     for route in routes
         println("[Server]::RouteChat receving and sending route", route)
         @yield route
+        println("[Server]::RouteChat after sending route")
     end
+    println("[Server]::RouteChat => End")
 end
 
 function TerminateServer(empty::routeguide.Empty)
