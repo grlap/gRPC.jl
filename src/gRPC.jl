@@ -262,37 +262,48 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
         return nothing
     end
 
-    local compressed::Bool
     try
-        compressed = read(io, UInt8)
+        instance = deserialize_object(io, T)
+        return (instance, 1)
     catch e
         if isa(e, EOFError)
-            return nothing
-        else
-            rethrow()
+                return nothing
+            else
+                rethrow()
         end
     end
 
-    data_length = ntoh(read(io, UInt32))
+    #local compressed::Bool
+    #try
+    #    compressed = read(io, UInt8)
+    #catch e
+    #    if isa(e, EOFError)
+    #        return nothing
+    #    else
+    #        rethrow()
+    #    end
+    #end
 
-    if data_length != 0
-        io = IOBuffer(read(io, data_length))
+    #data_length = ntoh(read(io, UInt32))
 
-        if compressed == 1
-            io = GzipDecompressorStream(io)
-        end
+    #if data_length != 0
+    #    io = IOBuffer(read(io, data_length))
 
-        proto_decoder = ProtoDecoder(io)
-        instance= decode(proto_decoder, T)
+    #    if compressed == 1
+    #        io = GzipDecompressorStream(io)
+    #    end
 
-        if compressed == 1
-            finalize(io)
-        end
+    #    proto_decoder = ProtoDecoder(io)
+    #    instance= decode(proto_decoder, T)
 
-        return (instance, 1)
-    else
-        return nothing
-    end
+    #    if compressed == 1
+    #        finalize(io)
+    #    end
+
+    #    return (instance, 1)
+    #else
+    #    return nothing
+    #end
 end
 
 
