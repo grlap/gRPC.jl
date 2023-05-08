@@ -178,6 +178,7 @@ mutable struct SerializeStream <: IO
 end
 
 function internal_read(serialize_stream::SerializeStream)::Bool
+    @show "[SerializeStream]::internal_read"
     if serialize_stream.eof
         # No more elements available.
         return false
