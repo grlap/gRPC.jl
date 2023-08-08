@@ -220,7 +220,7 @@ function client_call(port, use_ssl::Bool)
         #result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
         result = OpenSSL.ssl_set_alpn(ssl_ctx, OpenSSL.HTTP2_ALPN)
 
-        socket = SSLStream(ssl_ctx, socket, socket)
+        socket = SSLStream(ssl_ctx, socket)
 
         Sockets.connect(socket; require_ssl_verification = false)
     else

@@ -85,7 +85,7 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
 
     def TerminateServer(self, request, context):
         print("TerminateServer!")
-        self.server.stop(1)
+        self.server.stop(3)
         return route_guide_pb2.Empty()
 
 

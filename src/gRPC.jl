@@ -23,17 +23,13 @@ abstract type AbstractProtoServiceStub{B} end
 """
 const MethodDescriptor = Tuple{Symbol, Int64, DataType, DataType}
 
-get_request_type(method_descr::MethodDescriptor) = method_descr[3]
-get_response_type(method_descr::MethodDescriptor) = method_descr[4]
+get_method_name(method_descriptor::MethodDescriptor) = method_descriptor[1]
+get_request_type(method_descriptor::MethodDescriptor) = method_descriptor[3]
+get_response_type(method_descriptor::MethodDescriptor) = method_descriptor[4]
 
-# ==============================
-# MethodDescriptor end
-#
-
-#
-# ServiceDescriptor begin
-# ==============================
-
+"""
+    ServiceDescriptor.
+"""
 const ServiceDescriptor = Tuple{String, Int, Dict{String, MethodDescriptor}}
 
 function find_method(svc::ServiceDescriptor, method_name::AbstractString)
@@ -44,27 +40,12 @@ function find_method(svc::ServiceDescriptor, method_name::AbstractString)
     svc_methods[method_name]
 end
 
-# ==============================
-# ServiceDescriptor end
-#
-
-#
-# Service begin
-# ==============================
+"""
+    ProtoService.
+"""
 const ProtoService = Tuple{ServiceDescriptor, Module}
 
-get_request_type(svc::ProtoService, meth::MethodDescriptor) = get_request_type(find_method(svc, meth))
-get_response_type(svc::ProtoService, meth::MethodDescriptor) = get_response_type(find_method(svc, meth))
-get_descriptor_for_type(svc::ProtoService) = svc.desc
-
-
-# ==============================
-# Service end
-#
-
-# ==============================
-# Service Stubs end
-#
+get_service_descriptor(proto_service::ProtoService) = proto_service[1]
 
 """
     gRPC status error codes.
@@ -178,9 +159,7 @@ mutable struct SerializeStream <: IO
 end
 
 function internal_read(serialize_stream::SerializeStream)::Bool
-    @show "[SerializeStream]::internal_read"
     if serialize_stream.eof
-        @show "[SerializeStream]::internal_read client eof"
         # No more elements available.
         return false
     end
@@ -197,12 +176,9 @@ function internal_read(serialize_stream::SerializeStream)::Bool
         write(serialize_stream.buffer, iob)
         seek(serialize_stream.buffer, current_position)
 
-        println("[SerializeStream]::internal_read iterate", state)
         # Get the next element from the iterator.
         serialize_stream.next = iterate(serialize_stream.itr, state)
-        println("[SerializeStream]::internal_read => iterate done", serialize_stream.next)
     else
-        println("[SerializeStream]::internal_read server eof")
         serialize_stream.eof = true
     end
 
@@ -261,7 +237,6 @@ function Base.Iterators.Enumerate{T}() where {T}
 end
 
 function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
-    @show "[DeserializeStream{T}]::iterate", s
     io = stream.io
 
     if eof(io)
@@ -408,13 +383,15 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     proto_service::ProtoService = server.proto_services[service_name]
 
-    method = find_method(proto_service[1], method_name)
+    service_descriptor = get_service_descriptor(proto_service)
+
+    method = find_method(service_descriptor, method_name)
 
     request_type = get_request_type(method)
 
-    request_argument = deserialize_object(request_stream, request_type)
+    request_object = deserialize_object(request_stream, request_type)
 
-    response = handle_method(proto_service, method, controller, request_argument)
+    response = handle_method(proto_service, method, controller, request_object)
     response_type = get_response_type(method)
 
     io = serialize_object(response, response_type)
