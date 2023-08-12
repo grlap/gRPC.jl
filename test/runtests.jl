@@ -193,25 +193,10 @@ function server_call(socket)
     return nothing
 end
 
-function helloworld_client_call()
-    controller = gRPCController()
-
-    socket = connect(40200)
-
-    client_session = Nghttp2.open(socket)
-
-    # Create gRPC channel.
-    grpc_channel = gRPCChannel(client_session)
-
-    hello_request = helloworld.HelloRequest()
-    hello_request.name = "Hello from Julia"
-
-    hello_reply = helloworld.SayHello(grpc_channel, hello_request)
-    @show hello_reply
-end
-
-function client_call(port, use_ssl::Bool, terminate_server::Bool)
+function client_call(port::UInt16, use_ssl::Bool, terminate_server::Bool)
     println("[client_call]: use_ssl:$use_ssl")
+    @show use_ssl
+    @show terminate_server
 
     local socket::IO
 
@@ -320,7 +305,7 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(40200, false, true)
+    client_call(UInt16(40200), false, true)
 
     fetch(f1)
 
@@ -363,12 +348,12 @@ end
 end
 
 @testset "Secure Python server - Julia client" begin
-    client_call(40500, true, false)
+    client_call(UInt16(40500), true, false)
     @test true
 end
 
 @testset "Insecure Python server - Julia client" begin
     # Shutdown gRPC server.
-    client_call(40300, false, true)
+    client_call(UInt16(40300), false, true)
     @test true
 end
