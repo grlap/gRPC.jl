@@ -83,12 +83,13 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             prev_notes.append(new_note)
 
     def TerminateServer(self, request, context):
-        self.server.stop(0)
+        print("[] Termnate server")
+        self.server.stop(5)
         return route_guide_pb2.Empty()
 
 
 def serve(private_key, public_root_key):
-    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
 
     servicer = RouteGuideServicer(grpc_server)
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(servicer, grpc_server)

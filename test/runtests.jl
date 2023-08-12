@@ -68,9 +68,9 @@ function python_install_requirements()
     #pip_os.main(["uninstall", "grpcio-tools", "-y"])
     #pip_os.main(["uninstall", "grpcio", "-y"])
 
-    pip_os.main(["install", "protobuf==4.22.4"])
-    pip_os.main(["install", "grpcio==1.54.0"])
-    pip_os.main(["install", "grpcio-tools==1.54.0"])
+    pip_os.main(["install", "protobuf==4.24.0"])
+    pip_os.main(["install", "grpcio==1.57.0"])
+    pip_os.main(["install", "grpcio-tools==1.57.0"])
     return nothing
 end
 
@@ -84,6 +84,9 @@ python_install_requirements()
 """
 function configure_pycall()
     println("Configure python [aths]")
+    t = rmprocs(2, 3, waitfor=0)
+    wait(t)
+
     # Create a worker process, where we run python interpreter.
     # One for the gRPC server, second for gRPC client.
     #
@@ -253,8 +256,11 @@ function client_call(port::UInt16, use_ssl::Bool, terminate_server::Bool)
 
     if terminate_server
         try
+            @show "terminate_server"
             _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
-        catch
+            @show "terminate_server done"
+        catch e
+            @show e
         end
     end
 
@@ -356,4 +362,10 @@ end
     # Shutdown gRPC server.
     client_call(UInt16(40300), false, true)
     @test true
+
+    @show workers()
+    #t = rmprocs(2, 3, waitfor=0)
+    #wait(t)
+
+    @show workers()
 end
