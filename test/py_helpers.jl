@@ -53,18 +53,37 @@ function python_server(private_key_pem, public_key_pem)
 
     # Calling from gRPC.jl/test.
     py"""
-    def hello_from_module(name: str, private_key_py, public_key_py) -> str:
-        import python_test.mymodule.mymodule as mm
-
+    def hello_from_module(name: str, private_key_py, public_key_py):
         import python_test.mymodule.server as server
-        server.serve(private_key_py, public_key_py)
-
-        # mm.hello_world(name)
-        return "abc"
+        return server.serve(private_key_py, public_key_py)
     """
 
     x = py"hello_from_module"("Julia", private_key_py, public_key_py)
     @show x
+    return x
+end
+
+function stop_python_grpc_server(grpc_server)
+        # Calling from gRPC.jl/test.
+        py"""
+        def stop_grpc_server(grpc_server) -> str:
+            import python_test.mymodule.server as mymodule_server
+            import sys
+            import traceback
+
+            try:
+                mymodule_server.stop_server(grpc_server)
+            except:
+                e = sys.exc_info()[0]
+                return str(traceback.format_exc())
+
+                # mm.hello_world(name)
+            return "abc"
+        """
+    
+        x = py"stop_grpc_server"(grpc_server)
+        @show x
+        nothing
 end
 
 config_py_path()

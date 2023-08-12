@@ -227,6 +227,8 @@ function client_call(port, use_ssl::Bool)
         socket = connect(port)
     end
 
+    println("[client_call]::tcp_connected")
+
     client_session = Nghttp2.open(socket)
 
     # Create gRPC channel.
@@ -265,6 +267,8 @@ function client_call(port, use_ssl::Bool)
     # Terminate the server.
     println("=> client_call.TerminateServer")
     _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
+
+    println("[client_call]::done")
 
     return nothing
 end
@@ -319,27 +323,39 @@ function test2()
 end
 
 function test3()
-    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
-
+    grpc_server = python_server(private_key_pem, public_key_pem)
     wait_for_server(UInt16(40500))
-
     client_call(40500, true)
-
-    fetch(f2)
+    stop_python_grpc_server(grpc_server)
 
     return nothing
 end
 
 function test4()
-    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
-
-    wait_for_server(UInt16(40300))
-
+    grpc_server = python_server(private_key_pem, public_key_pem)
+    wait_for_server(UInt16(40500))
     client_call(40300, false)
-
-    fetch(f2)
+    stop_python_grpc_server(grpc_server)
 
     return nothing
+end
+
+
+@resumable function enumerate_test_features()
+    for i in 1:10
+        feature = routeguide.Feature("enumerate_from_julia_$i", nothing)
+        @yield feature
+    end
+end
+
+@testset "SerializeStream" begin
+    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
+
+    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
+
+    for (index, value) in enumerate(deserialize_stream)
+        @show index, value
+    end
 end
 
 @testset "Python client - Julia server" begin
@@ -361,27 +377,3 @@ end
     test4()
     @test true
 end
-
-@resumable function enumerate_test_features()
-    for i in 1:10
-        feature = routeguide.Feature("enumerate_from_julia_$i", nothing)
-        @yield feature
-    end
-end
-
-@testset "SerializeStream" begin
-    serialize_stream = SerializeStream(enumerate(enumerate_test_features()))
-
-    deserialize_stream = DeserializeStream{routeguide.Feature}(serialize_stream)
-
-    for (index, value) in enumerate(deserialize_stream)
-        @show index, value
-    end
-end
-
-#include("test\\runtests.jl")
-#f1 = server_call(listen(40200))
-
-#include("test\\runtests.jl")
-#client_call(40200, false)
-
