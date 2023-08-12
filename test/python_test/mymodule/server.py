@@ -83,6 +83,7 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             prev_notes.append(new_note)
 
     def TerminateServer(self, request, context):
+        self.server.stop(0)
         return route_guide_pb2.Empty()
 
 
@@ -100,11 +101,9 @@ def serve(private_key, public_root_key):
         grpc_server.add_secure_port('[::]:40500', ssl_credentials)
 
     grpc_server.start()
-    return grpc_server
-
-def stop_server(grpc_server):
-    grpc_server.stop(0)
     grpc_server.wait_for_termination()
+
+    return None
 
 if __name__ == '__main__':
     serve(None, None)

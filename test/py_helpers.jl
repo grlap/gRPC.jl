@@ -63,27 +63,4 @@ function python_server(private_key_pem, public_key_pem)
     return x
 end
 
-function stop_python_grpc_server(grpc_server)
-        # Calling from gRPC.jl/test.
-        py"""
-        def stop_grpc_server(grpc_server) -> str:
-            import python_test.mymodule.server as mymodule_server
-            import sys
-            import traceback
-
-            try:
-                mymodule_server.stop_server(grpc_server)
-            except:
-                e = sys.exc_info()[0]
-                return str(traceback.format_exc())
-
-                # mm.hello_world(name)
-            return "abc"
-        """
-    
-        x = py"stop_grpc_server"(grpc_server)
-        @show x
-        nothing
-end
-
 config_py_path()

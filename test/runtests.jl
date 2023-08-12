@@ -85,7 +85,9 @@ python_install_requirements()
 function configure_pycall()
     println("Configure python [aths]")
     # Create a worker process, where we run python interpreter.
-    addprocs(1)
+    # One for the gRPC server, second for gRPC client.
+    #
+    addprocs(2)
 
     # Load python wrappers into the worker processes.
     @everywhere include("py_helpers.jl")
@@ -208,7 +210,7 @@ function helloworld_client_call()
     @show hello_reply
 end
 
-function client_call(port, use_ssl::Bool)
+function client_call(port, use_ssl::Bool, terminate_server::Bool)
     println("[client_call]: use_ssl:$use_ssl")
 
     local socket::IO
@@ -264,9 +266,12 @@ function client_call(port, use_ssl::Bool)
         println("feature.name: $(feature.name)")
     end
 
-    # Terminate the server.
-    println("=> client_call.TerminateServer")
-    _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
+    if terminate_server
+        try
+            _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
+        catch
+        end
+    end
 
     println("[client_call]::done")
 
@@ -299,7 +304,7 @@ end
 function test1()
     socket = listen(40200)
 
-    f2 = @spawnat 2 python_client()
+    f2 = @spawnat 3 python_client()
 
     server_call(socket)
 
@@ -315,27 +320,9 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(40200, false)
+    client_call(40200, false, true)
 
     fetch(f1)
-
-    return nothing
-end
-
-function test3()
-    grpc_server = python_server(private_key_pem, public_key_pem)
-    wait_for_server(UInt16(40500))
-    client_call(40500, true)
-    stop_python_grpc_server(grpc_server)
-
-    return nothing
-end
-
-function test4()
-    grpc_server = python_server(private_key_pem, public_key_pem)
-    wait_for_server(UInt16(40500))
-    client_call(40300, false)
-    stop_python_grpc_server(grpc_server)
 
     return nothing
 end
@@ -358,6 +345,13 @@ end
     end
 end
 
+@testset "Start Python gRPC Server" begin
+    @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show "waiting"
+    wait_for_server(UInt16(40500))
+    @show "waiting done"
+end
+
 @testset "Python client - Julia server" begin
     test1()
     @test true
@@ -369,11 +363,12 @@ end
 end
 
 @testset "Secure Python server - Julia client" begin
-    test3()
+    client_call(40500, true, false)
     @test true
 end
 
 @testset "Insecure Python server - Julia client" begin
-    test4()
+    # Shutdown gRPC server.
+    client_call(40300, false, true)
     @test true
 end
