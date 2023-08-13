@@ -106,7 +106,7 @@ def serve(private_key, public_root_key):
     grpc_server.start()
     #grpc_server.wait_for_termination()
     stop_event.wait()
-    grpc_server.stop()
+    grpc_server.stop(None)
     grpc_server.wait_for_termination()
 
     return None

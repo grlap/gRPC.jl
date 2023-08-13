@@ -335,7 +335,7 @@ end
         @show index, value
     end
 end
-"""
+
 @testset "Python client - Julia server" begin
     test1()
     @test true
@@ -359,9 +359,7 @@ end
 
     wait(f1)
 end
-"""
 
-"""
 @testset "Insecure Python server - Julia client" begin
     f1 = @spawnat 2 python_server(private_key_pem, public_key_pem)
     @show "waiting"
@@ -380,4 +378,3 @@ end
 
     @show workers()
 end
-"""
