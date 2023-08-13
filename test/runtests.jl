@@ -254,7 +254,7 @@ function client_call(port::UInt16, use_ssl::Bool, terminate_server::Bool)
         println("feature.name: $(feature.name)")
     end
 
-    if terminate_server
+    #if terminate_server
         try
             @show "terminate_server"
             _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
@@ -262,7 +262,7 @@ function client_call(port::UInt16, use_ssl::Bool, terminate_server::Bool)
         catch e
             @show e
         end
-    end
+    #end
 
     println("[client_call]::done")
 
@@ -335,14 +335,7 @@ end
         @show index, value
     end
 end
-
-@testset "Start Python gRPC Server" begin
-    @spawnat 2 python_server(private_key_pem, public_key_pem)
-    @show "waiting"
-    wait_for_server(UInt16(40500))
-    @show "waiting done"
-end
-
+"""
 @testset "Python client - Julia server" begin
     test1()
     @test true
@@ -354,18 +347,37 @@ end
 end
 
 @testset "Secure Python server - Julia client" begin
-    client_call(UInt16(40500), true, false)
-    @test true
-end
+    f1 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show "waiting"
+    wait_for_server(UInt16(40500))
+    @show "waiting done"
 
+    client_call(UInt16(40500), true, true)
+    @test true
+
+    @show f1
+
+    wait(f1)
+end
+"""
+
+"""
 @testset "Insecure Python server - Julia client" begin
-    # Shutdown gRPC server.
+    f1 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show "waiting"
+    wait_for_server(UInt16(40300))
+    @show "waiting done"
+
     client_call(UInt16(40300), false, true)
     @test true
 
+    wait(f1)
+
+    # Shutdown gRPC server.
     @show workers()
     #t = rmprocs(2, 3, waitfor=0)
     #wait(t)
 
     @show workers()
 end
+"""

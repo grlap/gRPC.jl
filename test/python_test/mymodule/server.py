@@ -3,6 +3,7 @@
 import grpc
 import math
 import time
+import threading
 from concurrent import futures
 
 import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
@@ -39,8 +40,9 @@ def get_distance(start, end):
 class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
     """Provides methods that implement functionality of route guide server."""
 
-    def __init__(self, server):
+    def __init__(self, server, stop_event):
         self.server = server
+        self.stop_event = stop_event
 
     def GetFeature(self, request, context):
         request.latitude = 89
@@ -83,15 +85,15 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             prev_notes.append(new_note)
 
     def TerminateServer(self, request, context):
-        print("[] Termnate server")
-        self.server.stop(5)
+        #self.server.stop(5)
+        self.stop_event.set()
         return route_guide_pb2.Empty()
 
-
 def serve(private_key, public_root_key):
-    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
+    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
 
-    servicer = RouteGuideServicer(grpc_server)
+    stop_event = threading.Event()
+    servicer = RouteGuideServicer(grpc_server, stop_event)
     route_guide_pb2_grpc.add_RouteGuideServicer_to_server(servicer, grpc_server)
     grpc_server.add_insecure_port('[::]:40300')
 
@@ -102,6 +104,9 @@ def serve(private_key, public_root_key):
         grpc_server.add_secure_port('[::]:40500', ssl_credentials)
 
     grpc_server.start()
+    #grpc_server.wait_for_termination()
+    stop_event.wait()
+    grpc_server.stop()
     grpc_server.wait_for_termination()
 
     return None
