@@ -7,6 +7,7 @@ version = "0.1.0"
 BitFlags = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 Nghttp2 = "d59d01c2-cedb-43fa-bb24-e6eaeb189957"
+OpenSSL = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 
@@ -15,8 +16,8 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 OpenSSL = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
 PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-ResumableFunctions = "c5292f4c-5179-55e1-98c5-05642aab7184"
+Semicoroutines = "b37d3d51-cc38-4fad-93cd-e6859934553f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Dates", "Distributed", "OpenSSL", "PyCall", "ResumableFunctions", "Test"]
+test = ["Dates", "Distributed", "OpenSSL", "PyCall", "Semicoroutines", "Test"]

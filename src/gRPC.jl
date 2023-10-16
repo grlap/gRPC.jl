@@ -6,11 +6,46 @@ using Nghttp2
 using ProtoBuf
 using Sockets
 
-include("svc.jl")
-
 export gRPCChannel, gRPCController, gRPCServer
 export SerializeStream, DeserializeStream
-export handle_request, call_method
+export handle_request, grpc_client_call
+
+struct ProtoServiceException <: Exception
+    msg::AbstractString
+end
+
+abstract type ProtoRpcChannel end
+abstract type ProtoRpcController end
+abstract type AbstractProtoServiceStub{B} end
+
+"""
+    MethodDescriptor.
+"""
+const MethodDescriptor = Tuple{Symbol, Int64, DataType, DataType}
+
+get_method_name(method_descriptor::MethodDescriptor) = method_descriptor[1]
+get_request_type(method_descriptor::MethodDescriptor) = method_descriptor[3]
+get_response_type(method_descriptor::MethodDescriptor) = method_descriptor[4]
+
+"""
+    ServiceDescriptor.
+"""
+const ServiceDescriptor = Tuple{String, Int, Dict{String, MethodDescriptor}}
+
+function find_method(svc::ServiceDescriptor, method_name::AbstractString)
+    svc_name = svc[1]
+    svc_methods = svc[3]
+
+    (method_name in keys(svc_methods)) || throw(ProtoServiceException("Service $(svc_name) has no method named $(method_name)"))
+    svc_methods[method_name]
+end
+
+"""
+    ProtoService.
+"""
+const ProtoService = Tuple{ServiceDescriptor, Module}
+
+get_service_descriptor(proto_service::ProtoService) = proto_service[1]
 
 """
     gRPC status error codes.
@@ -235,7 +270,8 @@ function Base.iterate(stream::DeserializeStream{T}, s=nothing) where {T}
             finalize(io)
         end
 
-        return (instance, 1)
+        
+        return (instance, isnothing(s) ? 1 : s + 1)
     else
         return nothing
     end
@@ -245,7 +281,7 @@ end
 """
     Deserialize a proto object instance from the io stream.
 """
-function deserialize_object(io::IO, instance_type::Type{T}) where {T}
+function deserialize_object(io::IO, ::Type{T}) where {T}
     is_compressed = read(io, UInt8)
     data_length = ntoh(read(io, UInt32))
 
@@ -347,13 +383,15 @@ function handle_request(http2_server_session::Http2ServerSession, controller::gR
 
     proto_service::ProtoService = server.proto_services[service_name]
 
-    method = find_method(proto_service[1], method_name)
+    service_descriptor = get_service_descriptor(proto_service)
+
+    method = find_method(service_descriptor, method_name)
 
     request_type = get_request_type(method)
 
-    request_argument = deserialize_object(request_stream, request_type)
+    request_object = deserialize_object(request_stream, request_type)
 
-    response = handle_method(proto_service, method, controller, request_argument)
+    response = handle_method(proto_service, method, controller, request_object)
     response_type = get_response_type(method)
 
     io = serialize_object(response, response_type)
@@ -377,23 +415,20 @@ end
 """
     Client call.
 """
-call_method(stub, method_name::String, request_type, response_type, controller, request) = call_method(stub.channel, stub.desc, method_name, request_type, response_type, controller, request)
-
+grpc_client_call(channel, service_name::String, method_name::String, request_type, response_type, request) =
+    call_method(channel, service_name, method_name, request_type, response_type, request)
 
 """
     Client request.
 """
 function call_method(
     channel::ProtoRpcChannel,
-    service::ServiceDescriptor,
+    service_name::String,
     method_name::String,
-    request_type::DataType, 
+    request_type::DataType,
     response_type::DataType,
-    controller::ProtoRpcController,
-    request)
+    request_object)
     
-    service_name = service[1]
-
     path = "/" * service_name * "/" * method_name
 
     headers = [
@@ -407,7 +442,7 @@ function call_method(
         "grpc-accept-encoding" => "identity,deflate,gzip",
         "te" => "trailers"]
 
-    iob = gRPC.serialize_object(request, request_type)
+    iob = gRPC.serialize_object(request_object, request_type)
 
     response_stream = submit_request(channel.session, iob, headers)
 
@@ -439,9 +474,9 @@ function call_method(
         throw(gRPCError(response_status_code, response_message))
     end
 
-    instance = deserialize_object(response_stream, response_type)
+    response_object = deserialize_object(response_stream, response_type)
 
-    return instance
+    return response_object
 end
 
 end # module gRPC

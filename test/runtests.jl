@@ -26,7 +26,6 @@ from grpc.tools import command
     Julia Proto implementation
     abstract type ProtoRpcChannel end
     abstract type ProtoRpcController end
-    abstract type AbstractProtoServiceStub{B} end
 """
 
 using Distributed
@@ -35,18 +34,18 @@ using Nghttp2
 using OpenSSL
 using ProtoBuf
 using PyCall
-using ResumableFunctions
+using Semicoroutines
 using Sockets
 using Test
 
 # Include protobuf codegen files.
 module helloworld
-import gRPC: call_method
+import gRPC: grpc_client_call
 include("proto/proto_jl_out/helloworld/helloworld_pb.jl")
 end
 
 module routeguide
-import gRPC: call_method
+import gRPC: grpc_client_call
 include("proto/proto_jl_out/routeguide/route_guide_pb.jl")
 end
 
@@ -65,12 +64,13 @@ function python_install_requirements()
     pip_os = pyimport("pip")
     pip_os.main(["list"])
 
+    #pip_os.main(["uninstall", "protobuf", "-y"])
     #pip_os.main(["uninstall", "grpcio-tools", "-y"])
     #pip_os.main(["uninstall", "grpcio", "-y"])
 
-    pip_os.main(["install", "protobuf==4.21.12"])
-    pip_os.main(["install", "grpcio==1.51.0"])
-    pip_os.main(["install", "grpcio-tools==1.51.0"])
+    pip_os.main(["install", "protobuf==4.24.0"])
+    pip_os.main(["install", "grpcio==1.57.0"])
+    pip_os.main(["install", "grpcio-tools==1.57.0"])
     return nothing
 end
 
@@ -84,8 +84,13 @@ python_install_requirements()
 """
 function configure_pycall()
     println("Configure python [aths]")
+    t = rmprocs(2, 3, waitfor=0)
+    wait(t)
+
     # Create a worker process, where we run python interpreter.
-    addprocs(1)
+    # One for the gRPC server, second for gRPC client.
+    #
+    addprocs(2)
 
     # Load python wrappers into the worker processes.
     @everywhere include("py_helpers.jl")
@@ -101,7 +106,7 @@ configure_pycall()
 """
 module RouteGuideTestHandler
 using gRPC
-using ResumableFunctions
+using Semicoroutines
 import gRPC: call_method
 include("proto/proto_jl_out/routeguide/routeguide.jl")
 
@@ -139,12 +144,14 @@ function RouteEcho(route_note::routeguide.RouteNote)
 end
 
 @resumable function RouteChat(routes::DeserializeStream{routeguide.RouteNote})
-    println("[Server]->RouteChat")
+    println("[Server]::RouteChat => Begin")
 
     for route in routes
-        println("[Server]::RouteChat receving and sending route")
+        println("[Server]::RouteChat receving and sending route", route)
         @yield route
+        println("[Server]::RouteChat after sending route")
     end
+    println("[Server]::RouteChat => End")
 end
 
 function TerminateServer(empty::routeguide.Empty)
@@ -189,28 +196,10 @@ function server_call(socket)
     return nothing
 end
 
-function helloworld_client_call()
-    controller = gRPCController()
-
-    socket = connect(40200)
-
-    client_session = Nghttp2.open(socket)
-
-    # Create gRPC channel.
-    grpc_channel = gRPCChannel(client_session)
-
-    greeterClient = helloworld.GreeterBlockingStub(grpc_channel)
-
-    hello_request = helloworld.HelloRequest()
-    hello_request.name = "Hello from Julia"
-
-    hello_reply = helloworld.SayHello(greeterClient, controller, hello_request)
-    @show hello_reply
-end
-
-function client_call(port, use_ssl::Bool)
+function client_call(port::UInt16, use_ssl::Bool, terminate_server::Bool)
     println("[client_call]: use_ssl:$use_ssl")
-    controller = gRPCController()
+    @show use_ssl
+    @show terminate_server
 
     local socket::IO
 
@@ -221,22 +210,22 @@ function client_call(port, use_ssl::Bool)
         #result = OpenSSL.ssl_set_options(ssl_ctx, OpenSSL.SSL_OP_NO_SSL_MASK)
         result = OpenSSL.ssl_set_alpn(ssl_ctx, OpenSSL.HTTP2_ALPN)
 
-        socket = SSLStream(ssl_ctx, socket, socket)
+        socket = SSLStream(ssl_ctx, socket)
 
         Sockets.connect(socket; require_ssl_verification = false)
     else
         socket = connect(port)
     end
 
+    println("[client_call]::tcp_connected")
+
     client_session = Nghttp2.open(socket)
 
     # Create gRPC channel.
     grpc_channel = gRPCChannel(client_session)
 
-    routeGuide = gRPC.ProtoServiceBlockingStub(routeguide._RouteGuide_desc, grpc_channel)
-
     # RouteChat.
-    route_nodes = routeguide.RouteChat(routeGuide, controller, ListRouteNotes())
+    route_nodes = routeguide.RouteChat(grpc_channel, ListRouteNotes())
     received_count::Int = 0
 
     for route_node in route_nodes
@@ -252,7 +241,7 @@ function client_call(port, use_ssl::Bool)
     in_point = routeguide.Point(1, 2)
 
     for n in 1:10
-        result = routeguide.GetFeature(routeGuide, controller, in_point)
+        result = routeguide.GetFeature(grpc_channel, in_point)
     end
 
     # List features.
@@ -260,14 +249,22 @@ function client_call(port, use_ssl::Bool)
     in_rect = routeguide.Rectangle(routeguide.Point(2,2), routeguide.Point(4,5))
     @show in_rect
 
-    list_features = routeguide.ListFeatures(routeGuide, controller, in_rect)
+    list_features = routeguide.ListFeatures(grpc_channel, in_rect)
     for feature in list_features
         println("feature.name: $(feature.name)")
     end
 
-    # Terminate the server.
-    println("=> client_call.TerminateServer")
-    _ = routeguide.TerminateServer(routeGuide, controller, routeguide.Empty())
+    #if terminate_server
+        try
+            @show "terminate_server"
+            _ = routeguide.TerminateServer(grpc_channel, routeguide.Empty())
+            @show "terminate_server done"
+        catch e
+            @show e
+        end
+    #end
+
+    println("[client_call]::done")
 
     return nothing
 end
@@ -298,7 +295,7 @@ end
 function test1()
     socket = listen(40200)
 
-    f2 = @spawnat 2 python_client()
+    f2 = @spawnat 3 python_client()
 
     server_call(socket)
 
@@ -314,64 +311,13 @@ function test2()
     # listen(), then pass the socket
     f1 = @spawnat 1 server_call(socket)
 
-    client_call(40200, false)
+    client_call(UInt16(40200), false, true)
 
     fetch(f1)
 
     return nothing
 end
 
-function test3()
-    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
-
-    wait_for_server(UInt16(40500))
-
-    client_call(40500, true)
-
-    fetch(f2)
-
-    return nothing
-end
-
-function test4()
-    f2 = @spawnat 2 python_server(private_key_pem, public_key_pem)
-
-    wait_for_server(UInt16(40300))
-
-    client_call(40300, false)
-
-    fetch(f2)
-
-    return nothing
-end
-
-@testset "Python client - Julia server" begin
-    test1()
-    @test true
-    test1()
-    @test true
-end
-
-@testset "Julia server and client" begin
-    test2()
-    @test true
-    test2()
-    @test true
-end
-
-@testset "Secure Python server - Julia client" begin
-    test3()
-    @test true
-    test3()
-    @test true
-end
-
-@testset "Insecure Python server - Julia client" begin
-    test4()
-    @test true
-    test4()
-    @test true
-end
 
 @resumable function enumerate_test_features()
     for i in 1:10
@@ -390,9 +336,45 @@ end
     end
 end
 
-#include("test\\runtests.jl")
-#f1 = server_call(listen(40200))
+@testset "Python client - Julia server" begin
+    test1()
+    @test true
+end
 
-#include("test\\runtests.jl")
-#client_call(40200, false)
+@testset "Julia server and client" begin
+    test2()
+    @test true
+end
 
+@testset "Secure Python server - Julia client" begin
+    f1 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show "waiting"
+    wait_for_server(UInt16(40500))
+    @show "waiting done"
+
+    client_call(UInt16(40500), true, true)
+    @test true
+
+    @show f1
+
+    wait(f1)
+end
+
+@testset "Insecure Python server - Julia client" begin
+    f1 = @spawnat 2 python_server(private_key_pem, public_key_pem)
+    @show "waiting"
+    wait_for_server(UInt16(40300))
+    @show "waiting done"
+
+    client_call(UInt16(40300), false, true)
+    @test true
+
+    wait(f1)
+
+    # Shutdown gRPC server.
+    @show workers()
+    #t = rmprocs(2, 3, waitfor=0)
+    #wait(t)
+
+    @show workers()
+end

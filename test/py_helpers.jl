@@ -53,18 +53,14 @@ function python_server(private_key_pem, public_key_pem)
 
     # Calling from gRPC.jl/test.
     py"""
-    def hello_from_module(name: str, private_key_py, public_key_py) -> str:
-        import python_test.mymodule.mymodule as mm
-
+    def hello_from_module(name: str, private_key_py, public_key_py):
         import python_test.mymodule.server as server
-        server.serve(private_key_py, public_key_py)
-
-        # mm.hello_world(name)
-        return "abc"
+        return server.serve(private_key_py, public_key_py)
     """
 
     x = py"hello_from_module"("Julia", private_key_py, public_key_py)
     @show x
+    return x
 end
 
 config_py_path()

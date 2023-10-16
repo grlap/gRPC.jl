@@ -3,19 +3,11 @@
 import grpc
 import math
 import time
+import threading
 from concurrent import futures
 
 import proto.route_guide_pb2_grpc as route_guide_pb2_grpc
 import proto.route_guide_pb2 as route_guide_pb2
-
-a = 1
-b = 2
-
-
-def foo():
-    print("Hello world!")
-    return a + b
-
 
 def get_feature(feature_db, point):
     """Returns Feature at given location or None."""
@@ -23,7 +15,6 @@ def get_feature(feature_db, point):
         if feature.location == point:
             return feature
     return None
-
 
 def get_distance(start, end):
     """Distance between two points."""
@@ -46,13 +37,12 @@ def get_distance(start, end):
     # metres
     return R * c
 
-
 class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
     """Provides methods that implement functionality of route guide server."""
 
-    def __init__(self, server):
-        x = 1
+    def __init__(self, server, stop_event):
         self.server = server
+        self.stop_event = stop_event
 
     def GetFeature(self, request, context):
         request.latitude = 89
@@ -95,25 +85,31 @@ class RouteGuideServicer(route_guide_pb2_grpc.RouteGuideServicer):
             prev_notes.append(new_note)
 
     def TerminateServer(self, request, context):
-        print("TerminateServer!")
-        self.server.stop(1)
+        #self.server.stop(5)
+        self.stop_event.set()
         return route_guide_pb2.Empty()
 
-
 def serve(private_key, public_root_key):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(RouteGuideServicer(server), server)
-    server.add_insecure_port('[::]:40300')
+    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+
+    stop_event = threading.Event()
+    servicer = RouteGuideServicer(grpc_server, stop_event)
+    route_guide_pb2_grpc.add_RouteGuideServicer_to_server(servicer, grpc_server)
+    grpc_server.add_insecure_port('[::]:40300')
 
     if private_key is not None and public_root_key is not None:
         server_certs_chain_pair = ((private_key, public_root_key),)
 
         ssl_credentials = grpc.ssl_server_credentials(server_certs_chain_pair)
-        server.add_secure_port('[::]:40500', ssl_credentials)
+        grpc_server.add_secure_port('[::]:40500', ssl_credentials)
 
-    server.start()
-    server.wait_for_termination()
-    server.stop(0)
+    grpc_server.start()
+    #grpc_server.wait_for_termination()
+    stop_event.wait()
+    grpc_server.stop(None)
+    grpc_server.wait_for_termination()
+
+    return None
 
 if __name__ == '__main__':
     serve(None, None)
